@@ -117,6 +117,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
 
   const toggleOptionSelection = (optionId: string) => {
     if (votedOptionIds.includes(optionId)) return;
+    if (!user) {
+      setErrorMsg("투표에 참여하려면 먼저 카카오 로그인이 필요합니다.");
+      return;
+    }
 
     setSelectedOptionIds((prev) => {
       const next = prev.includes(optionId)
@@ -140,6 +144,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
 
   const handleManualSaveDraft = () => {
     if (!poll || hasVoted || !isOngoing) return;
+    if (!user) {
+      setErrorMsg("중간 저장을 사용하려면 카카오 로그인이 필요합니다.");
+      return;
+    }
     savePollDraft(poll.id, selectedOptionIds, voterName);
     const nowTime = new Date().toLocaleTimeString("ko-KR", {
       hour: "2-digit",
@@ -160,6 +168,12 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
   };
 
   const handleVoteSubmit = async () => {
+    if (!user) {
+      setErrorMsg("투표를 제출하려면 먼저 카카오 로그인이 필요합니다.");
+      AuthService.signInWithKakao();
+      return;
+    }
+
     if (selectedOptionIds.length === 0) {
       setErrorMsg("투표할 항목을 하나 이상 선택해주세요.");
       return;
@@ -293,12 +307,21 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
           </div>
         )}
 
-        {/* Kakao Login Banner for Unauthenticated Users */}
+        {/* Kakao Login Required Banner for Unauthenticated Users */}
         {!user && isOngoing && !hasVoted && (
-          <div className="mb-6 p-4 rounded-xl bg-[#FEE500]/10 border border-[#FEE500]/30 text-amber-200 flex items-center justify-between gap-3">
+          <div className="mb-6 p-4 rounded-xl bg-[#FEE500]/10 border border-[#FEE500]/30 text-amber-200 flex items-center justify-between gap-3 shadow-md">
+            <div className="text-xs space-y-1">
+              <span className="font-bold text-[#FEE500] flex items-center gap-1.5 text-sm">
+                <MessageCircle className="w-4 h-4 fill-[#FEE500]" />
+                카카오 로그인 필수
+              </span>
+              <p className="text-slate-300">
+                투표에 참여하려면 카카오 계정 로그인이 필요합니다. (1계정당 1회 투표)
+              </p>
+            </div>
             <button
               onClick={() => AuthService.signInWithKakao()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-bold text-xs shrink-0 transition-transform active:scale-95 shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-bold text-xs shrink-0 transition-all hover:scale-105 active:scale-95 shadow-md"
             >
               <MessageCircle className="w-3.5 h-3.5 fill-[#191919]" />
               <span>카카오 로그인</span>
@@ -565,21 +588,31 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
               </button>
             )}
 
-            {isOngoing && (
-              <button
-                onClick={handleVoteSubmit}
-                disabled={isSubmitting || selectedOptionIds.length === 0}
-                className="flex items-center gap-2 px-6 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium text-sm shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50"
-              >
-                <Vote className="w-4 h-4" />
-                <span>
-                  {isSubmitting
-                    ? "제출 중..."
-                    : selectedOptionIds.length > 0
-                      ? `${selectedOptionIds.length}개 항목 투표하기`
-                      : "투표하기"}
-                </span>
-              </button>
+            {isOngoing && !hasVoted && (
+              user ? (
+                <button
+                  onClick={handleVoteSubmit}
+                  disabled={isSubmitting || selectedOptionIds.length === 0}
+                  className="flex items-center gap-2 px-6 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium text-sm shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50"
+                >
+                  <Vote className="w-4 h-4" />
+                  <span>
+                    {isSubmitting
+                      ? "제출 중..."
+                      : selectedOptionIds.length > 0
+                        ? `${selectedOptionIds.length}개 항목 투표하기`
+                        : "투표하기"}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => AuthService.signInWithKakao()}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-bold text-sm shadow-lg transition-all active:scale-95"
+                >
+                  <MessageCircle className="w-4 h-4 fill-[#191919]" />
+                  <span>카카오 로그인 후 투표하기</span>
+                </button>
+              )
             )}
           </div>
         </div>
