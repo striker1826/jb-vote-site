@@ -411,4 +411,26 @@ export const PollService = {
     }
     return null;
   },
+
+  async fetchUserVotedOptionIds(pollId: string, kakaoUserId?: string): Promise<string[]> {
+    const voterId = getVoterIdentifier(kakaoUserId);
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('votes')
+          .select('option_id')
+          .eq('poll_id', pollId)
+          .like('user_identifier', `${voterId}_%`);
+
+        if (!error && data) {
+          const ids = data.map((row: { option_id: string }) => row.option_id);
+          markUserVotedOptions(pollId, ids);
+          return ids;
+        }
+      } catch (err) {
+        console.warn('Supabase fetchUserVotedOptionIds error:', err);
+      }
+    }
+    return getUserVotedOptionIds(pollId);
+  },
 };

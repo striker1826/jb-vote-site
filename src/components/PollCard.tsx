@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, ShieldCheck, UserCheck, CheckCircle2, Vote, ArrowRight, Bookmark } from 'lucide-react';
 import type { Poll } from '../types/vote';
-import { getUserVotedOptionId, hasPollDraft } from '../lib/supabase';
-
+import { PollService, hasPollDraft, type UserProfile } from '../lib/supabase';
 
 interface PollCardProps {
   poll: Poll;
+  user?: UserProfile | null;
   onSelect: (poll: Poll) => void;
 }
 
-export const PollCard: React.FC<PollCardProps> = ({ poll, onSelect }) => {
+export const PollCard: React.FC<PollCardProps> = ({ poll, user, onSelect }) => {
   const [hasVoted, setHasVoted] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -27,9 +27,11 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, onSelect }) => {
     : 0;
 
   useEffect(() => {
-    const voted = Boolean(getUserVotedOptionId(poll.id));
-    setHasVoted(voted);
-    setHasDraft(!voted && hasPollDraft(poll.id));
+    PollService.fetchUserVotedOptionIds(poll.id, user?.id).then((userVotes) => {
+      const voted = userVotes.length > 0;
+      setHasVoted(voted);
+      setHasDraft(!voted && hasPollDraft(poll.id));
+    });
 
     const updateTimer = () => {
       const current = new Date();

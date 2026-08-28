@@ -202,6 +202,7 @@ export function App() {
               <PollCard
                 key={poll.id}
                 poll={poll}
+                user={user}
                 onSelect={(selected) => setSelectedPoll(selected)}
               />
             ))}

@@ -23,7 +23,6 @@ import {
 import type { Poll } from "../types/vote";
 import {
   PollService,
-  getUserVotedOptionIds,
   getPollDraft,
   savePollDraft,
   clearPollDraft,
@@ -92,31 +91,31 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
 
   useEffect(() => {
     if (poll) {
-      const userVotes = getUserVotedOptionIds(poll.id);
-      setVotedOptionIds(userVotes);
       setErrorMsg("");
       setNewOptionText("");
       setNewOptionLink("");
       setShowAddInput(false);
       setToastMsg("");
 
-      // Check for saved draft if user hasn't voted yet
-      if (userVotes.length === 0) {
-        const draft = getPollDraft(poll.id);
-        if (draft) {
-          setSelectedOptionIds(draft.selectedOptionIds || []);
-          setVoterName(draft.voterName || user?.name || "");
-          setDraftInfo({ isLoaded: true, savedAt: draft.savedAt });
+      PollService.fetchUserVotedOptionIds(poll.id, user?.id).then((userVotes) => {
+        setVotedOptionIds(userVotes);
+        if (userVotes.length === 0) {
+          const draft = getPollDraft(poll.id);
+          if (draft) {
+            setSelectedOptionIds(draft.selectedOptionIds || []);
+            setVoterName(draft.voterName || user?.name || "");
+            setDraftInfo({ isLoaded: true, savedAt: draft.savedAt });
+          } else {
+            setSelectedOptionIds([]);
+            setVoterName(user?.name || "");
+            setDraftInfo(null);
+          }
         } else {
-          setSelectedOptionIds([]);
+          setSelectedOptionIds(userVotes);
           setVoterName(user?.name || "");
           setDraftInfo(null);
         }
-      } else {
-        setSelectedOptionIds(userVotes);
-        setVoterName(user?.name || "");
-        setDraftInfo(null);
-      }
+      });
     }
   }, [poll, user]);
 
