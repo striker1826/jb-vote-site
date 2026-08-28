@@ -36,6 +36,9 @@ export const AuthService = {
       provider: 'kakao',
       options: {
         scopes: 'profile_nickname profile_image',
+        queryParams: {
+          scope: 'profile_nickname,profile_image',
+        },
         redirectTo: window.location.origin,
       },
     });
