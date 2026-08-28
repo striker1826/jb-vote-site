@@ -1,9 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { X, Vote, CheckCircle2, ShieldCheck, UserCheck, Clock, BarChart3, AlertTriangle, Plus, Music, CheckSquare, Square, ExternalLink, Video, Link as LinkIcon, Bookmark, Save, RotateCcw, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import {
+  X,
+  Vote,
+  CheckCircle2,
+  ShieldCheck,
+  UserCheck,
+  Clock,
+  BarChart3,
+  AlertTriangle,
+  Plus,
+  Music,
+  CheckSquare,
+  Square,
+  ExternalLink,
+  Video,
+  Link as LinkIcon,
+  Bookmark,
+  Save,
+  RotateCcw,
+  MessageCircle,
+} from "lucide-react";
 
-import type { Poll } from '../types/vote';
-import { PollService, getUserVotedOptionIds, getPollDraft, savePollDraft, clearPollDraft, AuthService } from '../lib/supabase';
-import type { UserProfile } from '../lib/supabase';
+import type { Poll } from "../types/vote";
+import {
+  PollService,
+  getUserVotedOptionIds,
+  getPollDraft,
+  savePollDraft,
+  clearPollDraft,
+  AuthService,
+} from "../lib/supabase";
+import type { UserProfile } from "../lib/supabase";
 
 interface PollDetailModalProps {
   poll: Poll | null;
@@ -12,20 +39,28 @@ interface PollDetailModalProps {
   onVoteComplete: () => void;
 }
 
-export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, onClose, onVoteComplete }) => {
+export const PollDetailModal: React.FC<PollDetailModalProps> = ({
+  poll,
+  user,
+  onClose,
+  onVoteComplete,
+}) => {
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
-  const [voterName, setVoterName] = useState<string>('');
+  const [voterName, setVoterName] = useState<string>("");
   const [votedOptionIds, setVotedOptionIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
   // Draft state & feedback
-  const [draftInfo, setDraftInfo] = useState<{ isLoaded: boolean; savedAt?: string } | null>(null);
-  const [toastMsg, setToastMsg] = useState<string>('');
+  const [draftInfo, setDraftInfo] = useState<{
+    isLoaded: boolean;
+    savedAt?: string;
+  } | null>(null);
+  const [toastMsg, setToastMsg] = useState<string>("");
 
   // New option add state
-  const [newOptionText, setNewOptionText] = useState<string>('');
-  const [newOptionLink, setNewOptionLink] = useState<string>('');
+  const [newOptionText, setNewOptionText] = useState<string>("");
+  const [newOptionLink, setNewOptionLink] = useState<string>("");
   const [isAddingOption, setIsAddingOption] = useState<boolean>(false);
   const [showAddInput, setShowAddInput] = useState<boolean>(false);
 
@@ -33,27 +68,27 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
     if (poll) {
       const userVotes = getUserVotedOptionIds(poll.id);
       setVotedOptionIds(userVotes);
-      setErrorMsg('');
-      setNewOptionText('');
-      setNewOptionLink('');
+      setErrorMsg("");
+      setNewOptionText("");
+      setNewOptionLink("");
       setShowAddInput(false);
-      setToastMsg('');
+      setToastMsg("");
 
       // Check for saved draft if user hasn't voted yet
       if (userVotes.length === 0) {
         const draft = getPollDraft(poll.id);
         if (draft) {
           setSelectedOptionIds(draft.selectedOptionIds || []);
-          setVoterName(draft.voterName || user?.name || '');
+          setVoterName(draft.voterName || user?.name || "");
           setDraftInfo({ isLoaded: true, savedAt: draft.savedAt });
         } else {
           setSelectedOptionIds([]);
-          setVoterName(user?.name || '');
+          setVoterName(user?.name || "");
           setDraftInfo(null);
         }
       } else {
         setSelectedOptionIds([]);
-        setVoterName('');
+        setVoterName("");
         setDraftInfo(null);
       }
     }
@@ -76,7 +111,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => {
-      setToastMsg('');
+      setToastMsg("");
     }, 3000);
   };
 
@@ -106,35 +141,44 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
   const handleManualSaveDraft = () => {
     if (!poll || hasVoted || !isOngoing) return;
     savePollDraft(poll.id, selectedOptionIds, voterName);
-    const nowTime = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const nowTime = new Date().toLocaleTimeString("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
     setDraftInfo({ isLoaded: true, savedAt: nowTime });
-    showToast('💾 선택 항목이 중간 저장되었습니다.');
+    showToast("💾 선택 항목이 중간 저장되었습니다.");
   };
 
   const handleResetDraft = () => {
     if (!poll) return;
     clearPollDraft(poll.id);
     setSelectedOptionIds([]);
-    setVoterName(user?.name || '');
+    setVoterName(user?.name || "");
     setDraftInfo(null);
-    showToast('🗑️ 중간 저장된 내용이 초기화되었습니다.');
+    showToast("🗑️ 중간 저장된 내용이 초기화되었습니다.");
   };
 
   const handleVoteSubmit = async () => {
     if (selectedOptionIds.length === 0) {
-      setErrorMsg('투표할 항목을 하나 이상 선택해주세요.');
+      setErrorMsg("투표할 항목을 하나 이상 선택해주세요.");
       return;
     }
 
     if (!poll.is_anonymous && !voterName.trim()) {
-      setErrorMsg('공개 투표입니다. 이름 또는 닉네임을 입력해 주세요.');
+      setErrorMsg("공개 투표입니다. 이름 또는 닉네임을 입력해 주세요.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      setErrorMsg('');
-      const success = await PollService.castVote(poll.id, selectedOptionIds, voterName.trim(), user?.id);
+      setErrorMsg("");
+      const success = await PollService.castVote(
+        poll.id,
+        selectedOptionIds,
+        voterName.trim(),
+        user?.id,
+      );
       if (success) {
         clearPollDraft(poll.id);
         setVotedOptionIds((prev) => [...prev, ...selectedOptionIds]);
@@ -142,10 +186,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
         setDraftInfo(null);
         onVoteComplete();
       } else {
-        setErrorMsg('투표 처리에 실패했습니다.');
+        setErrorMsg("투표 처리에 실패했습니다.");
       }
     } catch (err: any) {
-      setErrorMsg('오류가 발생했습니다: ' + (err.message || err));
+      setErrorMsg("오류가 발생했습니다: " + (err.message || err));
     } finally {
       setIsSubmitting(false);
     }
@@ -157,20 +201,24 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
 
     try {
       setIsAddingOption(true);
-      setErrorMsg('');
-      const added = await PollService.addOption(poll.id, newOptionText.trim(), newOptionLink.trim());
+      setErrorMsg("");
+      const added = await PollService.addOption(
+        poll.id,
+        newOptionText.trim(),
+        newOptionLink.trim(),
+      );
       if (added) {
         if (!poll.options) poll.options = [];
         poll.options.push(added);
-        setNewOptionText('');
-        setNewOptionLink('');
+        setNewOptionText("");
+        setNewOptionLink("");
         setShowAddInput(false);
         onVoteComplete();
       } else {
-        setErrorMsg('항목 추가에 실패했습니다.');
+        setErrorMsg("항목 추가에 실패했습니다.");
       }
     } catch (err: any) {
-      setErrorMsg('항목 추가 중 오류가 발생했습니다: ' + (err.message || err));
+      setErrorMsg("항목 추가 중 오류가 발생했습니다: " + (err.message || err));
     } finally {
       setIsAddingOption(false);
     }
@@ -178,13 +226,12 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
 
   const isYouTubeUrl = (url?: string) => {
     if (!url) return false;
-    return url.includes('youtube.com') || url.includes('youtu.be');
+    return url.includes("youtube.com") || url.includes("youtu.be");
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8">
-        
         {/* Header */}
         <div className="flex items-start justify-between pb-4 mb-6 border-b border-slate-800">
           <div>
@@ -215,9 +262,13 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
               )}
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-1">{poll.title}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-1">
+              {poll.title}
+            </h2>
             {poll.description && (
-              <p className="text-sm text-slate-400 mt-1 leading-relaxed">{poll.description}</p>
+              <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+                {poll.description}
+              </p>
             )}
           </div>
 
@@ -245,10 +296,6 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
         {/* Kakao Login Banner for Unauthenticated Users */}
         {!user && isOngoing && !hasVoted && (
           <div className="mb-6 p-4 rounded-xl bg-[#FEE500]/10 border border-[#FEE500]/30 text-amber-200 flex items-center justify-between gap-3">
-            <div className="text-xs space-y-0.5">
-              <span className="font-semibold text-amber-300 block">💡 1인 1회 중복 투표 방지</span>
-              <span className="text-slate-300">카카오 로그인 후 투표하면 본인 계정 고유 ID로 중복 투표가 차단됩니다.</span>
-            </div>
             <button
               onClick={() => AuthService.signInWithKakao()}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-bold text-xs shrink-0 transition-transform active:scale-95 shadow-sm"
@@ -266,7 +313,11 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
               <Bookmark className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
                 중간 저장된 선택 항목이 불러와졌습니다.
-                {draftInfo.savedAt && <span className="text-amber-400/80 ml-1">({draftInfo.savedAt} 저장됨)</span>}
+                {draftInfo.savedAt && (
+                  <span className="text-amber-400/80 ml-1">
+                    ({draftInfo.savedAt} 저장됨)
+                  </span>
+                )}
               </span>
             </div>
             <button
@@ -307,7 +358,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
           </div>
 
           {poll.options?.map((option) => {
-            const percentage = totalVotes > 0 ? Math.round((option.vote_count / totalVotes) * 100) : 0;
+            const percentage =
+              totalVotes > 0
+                ? Math.round((option.vote_count / totalVotes) * 100)
+                : 0;
             const isMyVote = votedOptionIds.includes(option.id);
             const isSelected = selectedOptionIds.includes(option.id);
             const hasLink = Boolean(option.link_url && option.link_url.trim());
@@ -321,20 +375,22 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                   }
                 }}
                 className={`relative overflow-hidden p-4 rounded-xl border transition-all ${
-                  isOngoing && !isMyVote ? 'cursor-pointer hover:border-indigo-500/60' : ''
+                  isOngoing && !isMyVote
+                    ? "cursor-pointer hover:border-indigo-500/60"
+                    : ""
                 } ${
                   isSelected
-                    ? 'bg-indigo-600/10 border-indigo-500 text-white ring-1 ring-indigo-500'
+                    ? "bg-indigo-600/10 border-indigo-500 text-white ring-1 ring-indigo-500"
                     : isMyVote
-                    ? 'bg-indigo-950/40 border-indigo-500/80 text-white'
-                    : 'bg-slate-950 border-slate-800/80 text-slate-200'
+                      ? "bg-indigo-950/40 border-indigo-500/80 text-white"
+                      : "bg-slate-950 border-slate-800/80 text-slate-200"
                 }`}
               >
                 {/* Background Result Progress Bar */}
                 {(hasVoted || isEnded) && (
                   <div
                     className={`absolute left-0 top-0 bottom-0 transition-all duration-500 opacity-20 ${
-                      isMyVote ? 'bg-indigo-500' : 'bg-slate-600'
+                      isMyVote ? "bg-indigo-500" : "bg-slate-600"
                     }`}
                     style={{ width: `${percentage}%` }}
                   />
@@ -346,10 +402,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                     <div
                       className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
                         isMyVote
-                          ? 'bg-emerald-600 text-white'
+                          ? "bg-emerald-600 text-white"
                           : isSelected
-                          ? 'bg-indigo-600 border-indigo-500 text-white'
-                          : 'border border-slate-700 bg-slate-900 text-slate-600'
+                            ? "bg-indigo-600 border-indigo-500 text-white"
+                            : "border border-slate-700 bg-slate-900 text-slate-600"
                       }`}
                     >
                       {isMyVote ? (
@@ -373,8 +429,8 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                           onClick={(e) => e.stopPropagation()}
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${
                             isYouTubeUrl(option.link_url)
-                              ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
-                              : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30'
+                              ? "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30"
+                              : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30"
                           }`}
                         >
                           {isYouTubeUrl(option.link_url) ? (
@@ -383,7 +439,11 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                             <ExternalLink className="w-3 h-3 text-indigo-400" />
                           )}
 
-                          <span>{isYouTubeUrl(option.link_url) ? '유튜브 듣기' : '링크 보러가기'}</span>
+                          <span>
+                            {isYouTubeUrl(option.link_url)
+                              ? "유튜브 듣기"
+                              : "링크 보러가기"}
+                          </span>
                         </a>
                       )}
 
@@ -398,8 +458,12 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                   {/* Percentage & Vote Count */}
                   {(hasVoted || isEnded) && (
                     <div className="text-right shrink-0">
-                      <span className="text-base font-bold text-white">{percentage}%</span>
-                      <span className="block text-[11px] text-slate-400">{option.vote_count}표</span>
+                      <span className="text-base font-bold text-white">
+                        {percentage}%
+                      </span>
+                      <span className="block text-[11px] text-slate-400">
+                        {option.vote_count}표
+                      </span>
                     </div>
                   )}
                 </div>
@@ -452,8 +516,8 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                     type="button"
                     onClick={() => {
                       setShowAddInput(false);
-                      setNewOptionText('');
-                      setNewOptionLink('');
+                      setNewOptionText("");
+                      setNewOptionLink("");
                     }}
                     className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-medium transition-colors"
                   >
@@ -464,7 +528,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                     disabled={isAddingOption || !newOptionText.trim()}
                     className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md disabled:opacity-50 transition-colors"
                   >
-                    {isAddingOption ? '추가 중...' : '추가하기'}
+                    {isAddingOption ? "추가 중..." : "추가하기"}
                   </button>
                 </div>
               </form>
@@ -476,7 +540,9 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
         <div className="flex items-center justify-between pt-4 border-t border-slate-800">
           <div className="text-xs text-slate-400 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-slate-500" />
-            <span>마감일시: {new Date(poll.end_at).toLocaleString('ko-KR')}</span>
+            <span>
+              마감일시: {new Date(poll.end_at).toLocaleString("ko-KR")}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -508,16 +574,15 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, on
                 <Vote className="w-4 h-4" />
                 <span>
                   {isSubmitting
-                    ? '제출 중...'
+                    ? "제출 중..."
                     : selectedOptionIds.length > 0
-                    ? `${selectedOptionIds.length}개 항목 투표하기`
-                    : '투표하기'}
+                      ? `${selectedOptionIds.length}개 항목 투표하기`
+                      : "투표하기"}
                 </span>
               </button>
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
