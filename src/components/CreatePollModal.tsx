@@ -112,9 +112,6 @@ export const CreatePollModal: React.FC<CreatePollModalProps> = ({
               <span className="w-3 h-3 rounded-full bg-indigo-500 inline-block animate-pulse" />
               새 투표 등록하기
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              투표 기간, 익명 여부, 투표 항목을 설정하여 수월하게 시작하세요.
-            </p>
           </div>
           <button
             onClick={onClose}
