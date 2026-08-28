@@ -210,26 +210,33 @@ export const PollService = {
     const voterId = getVoterIdentifier(kakaoUserId);
     const targets = Array.isArray(optionIds) ? optionIds : [optionIds];
 
-    if (targets.length === 0 || !isSupabaseConfigured || !supabase) return false;
+    if (!isSupabaseConfigured || !supabase) return false;
 
     try {
-      // 1. Fetch existing votes for this user on this poll from Supabase
+      // 1. Fetch existing votes for this poll from Supabase
       const { data: existingVotes, error: findErr } = await supabase
         .from('votes')
-        .select('id, option_id')
-        .eq('poll_id', pollId)
-        .like('user_identifier', `${voterId}_%`);
+        .select('id, option_id, user_identifier')
+        .eq('poll_id', pollId);
 
       if (findErr) console.warn('Supabase fetch existing votes error:', findErr);
 
-      const existingOptIds = (existingVotes || []).map((v: { option_id: string }) => v.option_id);
+      // Filter in JS using startsWith for exact voterId matching
+      const userExistingVotes = (existingVotes || []).filter((v: { user_identifier: string }) =>
+        v.user_identifier.startsWith(`${voterId}_`)
+      );
 
-      // 2. Delete votes that are no longer selected by user
-      const toDelete = (existingVotes || []).filter((v: { option_id: string }) => !targets.includes(v.option_id));
+      const existingOptIds = userExistingVotes.map((v: { option_id: string }) => v.option_id);
+
+      // 2. Delete votes for options that are no longer selected by user
+      const toDelete = userExistingVotes.filter((v: { option_id: string }) => !targets.includes(v.option_id));
       if (toDelete.length > 0) {
         const deleteIds = toDelete.map((v: { id: string }) => v.id);
         const { error: delErr } = await supabase.from('votes').delete().in('id', deleteIds);
-        if (delErr) console.warn('Supabase delete vote error:', delErr);
+        if (delErr) {
+          console.error('Supabase delete vote error:', delErr);
+          throw delErr;
+        }
       }
 
       // 3. Insert new targets that were not previously in DB
@@ -306,12 +313,14 @@ export const PollService = {
       try {
         const { data, error } = await supabase
           .from('votes')
-          .select('option_id')
-          .eq('poll_id', pollId)
-          .like('user_identifier', `${voterId}_%`);
+          .select('option_id, user_identifier')
+          .eq('poll_id', pollId);
 
         if (!error && data) {
-          return data.map((row: { option_id: string }) => row.option_id);
+          const userVotes = data.filter((row: { user_identifier: string }) =>
+            row.user_identifier.startsWith(`${voterId}_`)
+          );
+          return userVotes.map((row: { option_id: string }) => row.option_id);
         }
       } catch (err) {
         console.warn('Supabase fetchUserVotedOptionIds error:', err);
