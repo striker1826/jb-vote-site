@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, ShieldCheck, UserCheck, Vote, ArrowRight } from 'lucide-react';
+import { Clock, ShieldCheck, UserCheck, CheckCircle2, Vote, ArrowRight } from 'lucide-react';
 import type { Poll } from '../types/vote';
 import { PollService, type UserProfile } from '../lib/supabase';
 

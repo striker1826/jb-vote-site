@@ -289,31 +289,6 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
           </div>
         )}
 
-        {/* Draft Loaded / Saved Notice Banner */}
-        {draftInfo && isOngoing && !hasVoted && (
-          <div className="mb-6 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Bookmark className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>
-                중간 저장된 선택 항목이 불러와졌습니다.
-                {draftInfo.savedAt && (
-                  <span className="text-amber-400/80 ml-1">
-                    ({draftInfo.savedAt} 저장됨)
-                  </span>
-                )}
-              </span>
-            </div>
-            <button
-              onClick={handleResetDraft}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-semibold border border-amber-500/30 transition-colors shrink-0"
-              title="중간 저장 내용 초기화"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>초기화</span>
-            </button>
-          </div>
-        )}
-
         {/* Public Vote Name Input */}
         {!poll.is_anonymous && isOngoing && (
           <div className="mb-6 p-4 rounded-xl bg-slate-950 border border-slate-800">
