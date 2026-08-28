@@ -5,7 +5,8 @@ import { CreatePollModal } from "./components/CreatePollModal";
 import { PollDetailModal } from "./components/PollDetailModal";
 import { SupabaseInfoModal } from "./components/SupabaseInfoModal";
 import type { Poll, PollStatusFilter } from "./types/vote";
-import { PollService } from "./lib/supabase";
+import { PollService, AuthService } from "./lib/supabase";
+import type { UserProfile } from "./lib/supabase";
 import {
   Search,
   Filter,
@@ -19,6 +20,7 @@ import {
 export function App() {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<PollStatusFilter>("all");
 
@@ -41,6 +43,10 @@ export function App() {
 
   useEffect(() => {
     loadPolls();
+    const unsubscribe = AuthService.onAuthStateChange((currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
 
   const filteredPolls = polls.filter((poll) => {
@@ -72,6 +78,7 @@ export function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Navbar */}
       <Navbar
+        user={user}
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenDbConfig={() => setIsDbModalOpen(true)}
       />
@@ -232,6 +239,7 @@ export function App() {
 
       <PollDetailModal
         poll={selectedPoll}
+        user={user}
         onClose={() => setSelectedPoll(null)}
         onVoteComplete={() => {
           loadPolls();

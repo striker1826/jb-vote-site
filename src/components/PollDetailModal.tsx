@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, Vote, CheckCircle2, ShieldCheck, UserCheck, Clock, BarChart3, AlertTriangle, Plus, Music, CheckSquare, Square, ExternalLink, Video, Link as LinkIcon, Bookmark, Save, RotateCcw } from 'lucide-react';
+import { X, Vote, CheckCircle2, ShieldCheck, UserCheck, Clock, BarChart3, AlertTriangle, Plus, Music, CheckSquare, Square, ExternalLink, Video, Link as LinkIcon, Bookmark, Save, RotateCcw, MessageCircle } from 'lucide-react';
 
 import type { Poll } from '../types/vote';
-import { PollService, getUserVotedOptionIds, getPollDraft, savePollDraft, clearPollDraft } from '../lib/supabase';
+import { PollService, getUserVotedOptionIds, getPollDraft, savePollDraft, clearPollDraft, AuthService } from '../lib/supabase';
+import type { UserProfile } from '../lib/supabase';
 
 interface PollDetailModalProps {
   poll: Poll | null;
+  user: UserProfile | null;
   onClose: () => void;
   onVoteComplete: () => void;
 }
 
-export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose, onVoteComplete }) => {
+export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, user, onClose, onVoteComplete }) => {
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [voterName, setVoterName] = useState<string>('');
   const [votedOptionIds, setVotedOptionIds] = useState<string[]>([]);
@@ -42,11 +44,11 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
         const draft = getPollDraft(poll.id);
         if (draft) {
           setSelectedOptionIds(draft.selectedOptionIds || []);
-          setVoterName(draft.voterName || '');
+          setVoterName(draft.voterName || user?.name || '');
           setDraftInfo({ isLoaded: true, savedAt: draft.savedAt });
         } else {
           setSelectedOptionIds([]);
-          setVoterName('');
+          setVoterName(user?.name || '');
           setDraftInfo(null);
         }
       } else {
@@ -55,7 +57,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
         setDraftInfo(null);
       }
     }
-  }, [poll]);
+  }, [poll, user]);
 
   if (!poll) return null;
 
@@ -113,7 +115,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
     if (!poll) return;
     clearPollDraft(poll.id);
     setSelectedOptionIds([]);
-    setVoterName('');
+    setVoterName(user?.name || '');
     setDraftInfo(null);
     showToast('🗑️ 중간 저장된 내용이 초기화되었습니다.');
   };
@@ -132,7 +134,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
     try {
       setIsSubmitting(true);
       setErrorMsg('');
-      const success = await PollService.castVote(poll.id, selectedOptionIds, voterName.trim());
+      const success = await PollService.castVote(poll.id, selectedOptionIds, voterName.trim(), user?.id);
       if (success) {
         clearPollDraft(poll.id);
         setVotedOptionIds((prev) => [...prev, ...selectedOptionIds]);
@@ -237,6 +239,23 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
           <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Kakao Login Banner for Unauthenticated Users */}
+        {!user && isOngoing && !hasVoted && (
+          <div className="mb-6 p-4 rounded-xl bg-[#FEE500]/10 border border-[#FEE500]/30 text-amber-200 flex items-center justify-between gap-3">
+            <div className="text-xs space-y-0.5">
+              <span className="font-semibold text-amber-300 block">💡 1인 1회 중복 투표 방지</span>
+              <span className="text-slate-300">카카오 로그인 후 투표하면 본인 계정 고유 ID로 중복 투표가 차단됩니다.</span>
+            </div>
+            <button
+              onClick={() => AuthService.signInWithKakao()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-bold text-xs shrink-0 transition-transform active:scale-95 shadow-sm"
+            >
+              <MessageCircle className="w-3.5 h-3.5 fill-[#191919]" />
+              <span>카카오 로그인</span>
+            </button>
           </div>
         )}
 

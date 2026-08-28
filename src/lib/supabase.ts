@@ -19,7 +19,75 @@ const LOCAL_STORAGE_POLLS_KEY = 'jb_vote_site_polls';
 const LOCAL_STORAGE_VOTES_KEY = 'jb_vote_site_user_votes';
 const LOCAL_STORAGE_DRAFTS_KEY = 'jb_vote_site_poll_drafts';
 
-export function getVoterIdentifier(): string {
+export interface UserProfile {
+  id: string;
+  name: string;
+  avatar_url?: string;
+  email?: string;
+}
+
+export const AuthService = {
+  async signInWithKakao() {
+    if (!isSupabaseConfigured || !supabase) {
+      alert('Supabase가 연결되어 있지 않습니다. .env 설정을 확인해주세요.');
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) {
+      console.error('Kakao login error:', error);
+      alert('카카오 로그인 요청에 실패했습니다: ' + error.message);
+    }
+  },
+
+  async signOut() {
+    if (isSupabaseConfigured && supabase) {
+      await supabase.auth.signOut();
+    }
+  },
+
+  async getCurrentUser(): Promise<UserProfile | null> {
+    if (!isSupabaseConfigured || !supabase) return null;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    return {
+      id: user.id,
+      name: user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.preferred_username || '카카오 사용자',
+      avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+      email: user.email,
+    };
+  },
+
+  onAuthStateChange(callback: (user: UserProfile | null) => void) {
+    if (!isSupabaseConfigured || !supabase) {
+      callback(null);
+      return () => {};
+    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        callback({
+          id: u.id,
+          name: u.user_metadata?.full_name || u.user_metadata?.name || u.user_metadata?.preferred_username || '카카오 사용자',
+          avatar_url: u.user_metadata?.avatar_url || u.user_metadata?.picture,
+          email: u.email,
+        });
+      } else {
+        callback(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  },
+};
+
+export function getVoterIdentifier(kakaoUserId?: string): string {
+  if (kakaoUserId) {
+    return 'kakao_' + kakaoUserId;
+  }
   let id = localStorage.getItem('jb_vote_voter_id');
   if (!id) {
     id = 'voter_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
@@ -221,8 +289,8 @@ export const PollService = {
     return createdPoll;
   },
 
-  async castVote(pollId: string, optionIds: string | string[], voterName?: string): Promise<boolean> {
-    const voterId = getVoterIdentifier();
+  async castVote(pollId: string, optionIds: string | string[], voterName?: string, kakaoUserId?: string): Promise<boolean> {
+    const voterId = getVoterIdentifier(kakaoUserId);
     const targets = Array.isArray(optionIds) ? optionIds : [optionIds];
 
     if (targets.length === 0) return false;

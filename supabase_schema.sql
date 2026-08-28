@@ -67,3 +67,15 @@ DROP TRIGGER IF EXISTS trigger_increment_vote ON public.votes;
 CREATE TRIGGER trigger_increment_vote
 AFTER INSERT ON public.votes
 FOR EACH ROW EXECUTE FUNCTION increment_option_vote_count();
+
+-- ========================================================
+-- 7. Kakao Social Login Setup Instructions (Supabase Dashboard)
+-- ========================================================
+-- 1) Kakao Developers Console (https://developers.kakao.com/)
+--    - Create application -> Add Platform -> Web: Redirect URI
+--      Redirect URI: https://<YOUR-SUPABASE-PROJECT-REF>.supabase.co/auth/v1/callback
+--    - Copy REST API Key & Security Client Secret Code.
+-- 2) Supabase Dashboard -> Authentication -> Providers -> Kakao
+--    - Enable Kakao provider
+--    - Input REST API Key as Client ID & Client Secret.
+-- ========================================================
