@@ -2,6 +2,7 @@ export interface PollOption {
   id: string;
   poll_id: string;
   text: string;
+  link_url?: string;
   vote_count: number;
 }
 

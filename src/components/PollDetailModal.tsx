@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Vote, CheckCircle2, ShieldCheck, UserCheck, Clock, BarChart3, AlertTriangle, Plus, Music, CheckSquare, Square } from 'lucide-react';
+import { X, Vote, CheckCircle2, ShieldCheck, UserCheck, Clock, BarChart3, AlertTriangle, Plus, Music, CheckSquare, Square, ExternalLink, Video, Link as LinkIcon } from 'lucide-react';
+
 import type { Poll } from '../types/vote';
 import { PollService, getUserVotedOptionIds } from '../lib/supabase';
 
@@ -18,6 +19,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
 
   // New option add state
   const [newOptionText, setNewOptionText] = useState<string>('');
+  const [newOptionLink, setNewOptionLink] = useState<string>('');
   const [isAddingOption, setIsAddingOption] = useState<boolean>(false);
   const [showAddInput, setShowAddInput] = useState<boolean>(false);
 
@@ -28,6 +30,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
       setSelectedOptionIds([]);
       setErrorMsg('');
       setNewOptionText('');
+      setNewOptionLink('');
       setShowAddInput(false);
     }
   }, [poll]);
@@ -47,7 +50,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
   const hasVoted = votedOptionIds.length > 0;
 
   const toggleOptionSelection = (optionId: string) => {
-    if (votedOptionIds.includes(optionId)) return; // Already voted for this option
+    if (votedOptionIds.includes(optionId)) return;
 
     setSelectedOptionIds((prev) =>
       prev.includes(optionId)
@@ -92,11 +95,12 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
     try {
       setIsAddingOption(true);
       setErrorMsg('');
-      const added = await PollService.addOption(poll.id, newOptionText.trim());
+      const added = await PollService.addOption(poll.id, newOptionText.trim(), newOptionLink.trim());
       if (added) {
         if (!poll.options) poll.options = [];
         poll.options.push(added);
         setNewOptionText('');
+        setNewOptionLink('');
         setShowAddInput(false);
         onVoteComplete();
       } else {
@@ -107,6 +111,11 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
     } finally {
       setIsAddingOption(false);
     }
+  };
+
+  const isYouTubeUrl = (url?: string) => {
+    if (!url) return false;
+    return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
   return (
@@ -194,6 +203,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
             const percentage = totalVotes > 0 ? Math.round((option.vote_count / totalVotes) * 100) : 0;
             const isMyVote = votedOptionIds.includes(option.id);
             const isSelected = selectedOptionIds.includes(option.id);
+            const hasLink = Boolean(option.link_url && option.link_url.trim());
 
             return (
               <div
@@ -224,7 +234,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
                 )}
 
                 <div className="relative z-10 flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1 pr-4">
+                  <div className="flex items-center gap-3 flex-1 pr-4 min-w-0">
                     {/* Checkbox Icon */}
                     <div
                       className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
@@ -244,13 +254,38 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
                       )}
                     </div>
 
-                    <span className="text-sm font-medium">{option.text}</span>
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium">{option.text}</span>
 
-                    {isMyVote && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        투표함
-                      </span>
-                    )}
+                      {/* YouTube / Reference Link Button */}
+                      {hasLink && (
+                        <a
+                          href={option.link_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${
+                            isYouTubeUrl(option.link_url)
+                              ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
+                              : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30'
+                          }`}
+                        >
+                          {isYouTubeUrl(option.link_url) ? (
+                            <Video className="w-3 h-3 text-rose-400" />
+                          ) : (
+                            <ExternalLink className="w-3 h-3 text-indigo-400" />
+                          )}
+
+                          <span>{isYouTubeUrl(option.link_url) ? '유튜브 듣기' : '링크 보러가기'}</span>
+                        </a>
+                      )}
+
+                      {isMyVote && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          투표함
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Percentage & Vote Count */}
@@ -282,33 +317,47 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
             ) : (
               <form onSubmit={handleAddOptionSubmit} className="space-y-3">
                 <label className="block text-xs font-semibold text-slate-300">
-                  추가할 투표 항목(곡 제목)을 입력하세요
+                  추가할 투표 항목(곡 제목)과 링크를 입력하세요
                 </label>
-                <div className="flex gap-2">
+                <div className="space-y-2">
                   <input
                     type="text"
                     value={newOptionText}
                     onChange={(e) => setNewOptionText(e.target.value)}
                     placeholder="예: NewJeans - Supernatural"
-                    className="flex-1 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"
                     autoFocus
                   />
-                  <button
-                    type="submit"
-                    disabled={isAddingOption || !newOptionText.trim()}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md disabled:opacity-50 transition-colors"
-                  >
-                    {isAddingOption ? '추가 중...' : '추가하기'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <LinkIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <input
+                      type="url"
+                      value={newOptionLink}
+                      onChange={(e) => setNewOptionLink(e.target.value)}
+                      placeholder="유튜브 / 참고 링크 (선택, https://...)"
+                      className="flex-1 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 placeholder-slate-600 text-xs focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => {
                       setShowAddInput(false);
                       setNewOptionText('');
+                      setNewOptionLink('');
                     }}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-medium transition-colors"
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-medium transition-colors"
                   >
                     취소
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAddingOption || !newOptionText.trim()}
+                    className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md disabled:opacity-50 transition-colors"
+                  >
+                    {isAddingOption ? '추가 중...' : '추가하기'}
                   </button>
                 </div>
               </form>

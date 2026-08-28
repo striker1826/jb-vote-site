@@ -48,6 +48,11 @@ export function getUserVotedOptionId(pollId: string): string | null {
   return ids.length > 0 ? ids[0] : null;
 }
 
+export interface CreateOptionInput {
+  text: string;
+  link_url?: string;
+}
+
 // API Service Wrapper
 export const PollService = {
   async fetchPolls(): Promise<Poll[]> {
@@ -92,8 +97,12 @@ export const PollService = {
     is_anonymous: boolean;
     start_at: string;
     end_at: string;
-    options: string[];
+    options: (string | CreateOptionInput)[];
   }): Promise<Poll> {
+    const formattedOptions: CreateOptionInput[] = newPollData.options.map((opt) =>
+      typeof opt === 'string' ? { text: opt, link_url: '' } : opt
+    );
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data: poll, error: pollErr } = await supabase
@@ -112,9 +121,10 @@ export const PollService = {
 
         if (pollErr) throw pollErr;
 
-        const optionInserts = newPollData.options.map((optText) => ({
+        const optionInserts = formattedOptions.map((opt) => ({
           poll_id: poll.id,
-          text: optText,
+          text: opt.text,
+          link_url: opt.link_url || null,
           vote_count: 0,
         }));
 
@@ -144,10 +154,11 @@ export const PollService = {
       start_at: newPollData.start_at,
       end_at: newPollData.end_at,
       created_at: new Date().toISOString(),
-      options: newPollData.options.map((text, idx) => ({
+      options: formattedOptions.map((opt, idx) => ({
         id: `opt-${mockPollId}-${idx}`,
         poll_id: mockPollId,
-        text,
+        text: opt.text,
+        link_url: opt.link_url,
         vote_count: 0,
       })),
     };
@@ -176,7 +187,6 @@ export const PollService = {
         const { error: voteErr } = await supabase.from('votes').insert(inserts);
 
         if (voteErr) {
-          // If trigger doesn't increment or unique constraint fails, try manual update
           console.warn('Vote insert error:', voteErr);
         }
         markUserVotedOptions(pollId, targets);
@@ -203,12 +213,12 @@ export const PollService = {
     return false;
   },
 
-  async addOption(pollId: string, optionText: string): Promise<PollOption | null> {
+  async addOption(pollId: string, optionText: string, linkUrl?: string): Promise<PollOption | null> {
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
           .from('poll_options')
-          .insert([{ poll_id: pollId, text: optionText, vote_count: 0 }])
+          .insert([{ poll_id: pollId, text: optionText, link_url: linkUrl || null, vote_count: 0 }])
           .select()
           .single();
 
@@ -227,6 +237,7 @@ export const PollService = {
         id: `opt-${pollId}-${Date.now()}`,
         poll_id: pollId,
         text: optionText,
+        link_url: linkUrl,
         vote_count: 0,
       };
       if (!polls[pollIndex].options) polls[pollIndex].options = [];

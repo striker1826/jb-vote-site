@@ -6,8 +6,11 @@ import {
   Calendar,
   ShieldCheck,
   UserCheck,
+  Link as LinkIcon,
 } from "lucide-react";
 import { PollService } from "../lib/supabase";
+import type { CreateOptionInput } from "../lib/supabase";
+
 
 interface CreatePollModalProps {
   isOpen: boolean;
@@ -29,14 +32,17 @@ export const CreatePollModal: React.FC<CreatePollModalProps> = ({
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [startAt, setStartAt] = useState(now.toISOString().slice(0, 16));
   const [endAt, setEndAt] = useState(defaultEnd.toISOString().slice(0, 16));
-  const [options, setOptions] = useState<string[]>(["", ""]);
+  const [options, setOptions] = useState<CreateOptionInput[]>([
+    { text: "", link_url: "" },
+    { text: "", link_url: "" },
+  ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
 
   const handleAddOption = () => {
-    setOptions([...options, ""]);
+    setOptions([...options, { text: "", link_url: "" }]);
   };
 
   const handleRemoveOption = (index: number) => {
@@ -48,9 +54,9 @@ export const CreatePollModal: React.FC<CreatePollModalProps> = ({
     setErrorMsg("");
   };
 
-  const handleOptionChange = (index: number, value: string) => {
+  const handleOptionChange = (index: number, field: 'text' | 'link_url', value: string) => {
     const updated = [...options];
-    updated[index] = value;
+    updated[index] = { ...updated[index], [field]: value };
     setOptions(updated);
   };
 
@@ -70,8 +76,9 @@ export const CreatePollModal: React.FC<CreatePollModalProps> = ({
     }
 
     const validOptions = options
-      .map((opt) => opt.trim())
-      .filter((opt) => opt.length > 0);
+      .map((opt) => ({ text: opt.text.trim(), link_url: opt.link_url?.trim() }))
+      .filter((opt) => opt.text.length > 0);
+
     if (validOptions.length < 2) {
       setErrorMsg("최소 2개 이상의 투표 항목을 작성해주세요.");
       return;
@@ -277,29 +284,42 @@ export const CreatePollModal: React.FC<CreatePollModalProps> = ({
               <span className="text-xs text-slate-400">최소 2개 항목</span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {options.map((option, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-xs font-semibold text-slate-400 shrink-0">
-                    {idx + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) => handleOptionChange(idx, e.target.value)}
-                    placeholder={`투표 항목 ${idx + 1} 내용`}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
-                  />
-                  {options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveOption(idx)}
-                      className="p-2.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                      title="항목 삭제"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                <div key={idx} className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-md bg-slate-800 flex items-center justify-center text-xs font-semibold text-slate-400 shrink-0">
+                      {idx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={option.text}
+                      onChange={(e) => handleOptionChange(idx, 'text', e.target.value)}
+                      placeholder={`투표 항목 ${idx + 1} 내용 (예: 곡 제목)`}
+                      className="flex-1 px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
+                    />
+                    {options.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOption(idx)}
+                        className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        title="항목 삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  {/* Link Input */}
+                  <div className="flex items-center gap-2 pl-8">
+                    <LinkIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <input
+                      type="url"
+                      value={option.link_url || ''}
+                      onChange={(e) => handleOptionChange(idx, 'link_url', e.target.value)}
+                      placeholder="유튜브 / 참고 링크 (선택, https://...)"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/80 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 text-xs"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

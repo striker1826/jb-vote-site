@@ -19,9 +19,11 @@ CREATE TABLE IF NOT EXISTS public.poll_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
     text VARCHAR(255) NOT NULL,
+    link_url TEXT,
     vote_count INT DEFAULT 0 NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
+
 
 -- 3. Create Votes Table (for tracking and preventing double voting)
 CREATE TABLE IF NOT EXISTS public.votes (
