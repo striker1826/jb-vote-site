@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Vote, CheckCircle2, ShieldCheck, UserCheck, Clock, BarChart3, AlertTriangle, Plus, Music, CheckSquare, Square, ExternalLink, Video, Link as LinkIcon } from 'lucide-react';
+import { X, Vote, CheckCircle2, ShieldCheck, UserCheck, Clock, BarChart3, AlertTriangle, Plus, Music, CheckSquare, Square, ExternalLink, Video, Link as LinkIcon, Bookmark, Save, RotateCcw } from 'lucide-react';
 
 import type { Poll } from '../types/vote';
-import { PollService, getUserVotedOptionIds } from '../lib/supabase';
+import { PollService, getUserVotedOptionIds, getPollDraft, savePollDraft, clearPollDraft } from '../lib/supabase';
 
 interface PollDetailModalProps {
   poll: Poll | null;
@@ -17,6 +17,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  // Draft state & feedback
+  const [draftInfo, setDraftInfo] = useState<{ isLoaded: boolean; savedAt?: string } | null>(null);
+  const [toastMsg, setToastMsg] = useState<string>('');
+
   // New option add state
   const [newOptionText, setNewOptionText] = useState<string>('');
   const [newOptionLink, setNewOptionLink] = useState<string>('');
@@ -27,11 +31,29 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
     if (poll) {
       const userVotes = getUserVotedOptionIds(poll.id);
       setVotedOptionIds(userVotes);
-      setSelectedOptionIds([]);
       setErrorMsg('');
       setNewOptionText('');
       setNewOptionLink('');
       setShowAddInput(false);
+      setToastMsg('');
+
+      // Check for saved draft if user hasn't voted yet
+      if (userVotes.length === 0) {
+        const draft = getPollDraft(poll.id);
+        if (draft) {
+          setSelectedOptionIds(draft.selectedOptionIds || []);
+          setVoterName(draft.voterName || '');
+          setDraftInfo({ isLoaded: true, savedAt: draft.savedAt });
+        } else {
+          setSelectedOptionIds([]);
+          setVoterName('');
+          setDraftInfo(null);
+        }
+      } else {
+        setSelectedOptionIds([]);
+        setVoterName('');
+        setDraftInfo(null);
+      }
     }
   }, [poll]);
 
@@ -49,14 +71,51 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
 
   const hasVoted = votedOptionIds.length > 0;
 
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg('');
+    }, 3000);
+  };
+
   const toggleOptionSelection = (optionId: string) => {
     if (votedOptionIds.includes(optionId)) return;
 
-    setSelectedOptionIds((prev) =>
-      prev.includes(optionId)
+    setSelectedOptionIds((prev) => {
+      const next = prev.includes(optionId)
         ? prev.filter((id) => id !== optionId)
-        : [...prev, optionId]
-    );
+        : [...prev, optionId];
+
+      // Auto-save draft on selection change
+      if (isOngoing && !hasVoted) {
+        savePollDraft(poll.id, next, voterName);
+      }
+      return next;
+    });
+  };
+
+  const handleVoterNameChange = (val: string) => {
+    setVoterName(val);
+    if (isOngoing && !hasVoted) {
+      savePollDraft(poll.id, selectedOptionIds, val);
+    }
+  };
+
+  const handleManualSaveDraft = () => {
+    if (!poll || hasVoted || !isOngoing) return;
+    savePollDraft(poll.id, selectedOptionIds, voterName);
+    const nowTime = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setDraftInfo({ isLoaded: true, savedAt: nowTime });
+    showToast('💾 선택 항목이 중간 저장되었습니다.');
+  };
+
+  const handleResetDraft = () => {
+    if (!poll) return;
+    clearPollDraft(poll.id);
+    setSelectedOptionIds([]);
+    setVoterName('');
+    setDraftInfo(null);
+    showToast('🗑️ 중간 저장된 내용이 초기화되었습니다.');
   };
 
   const handleVoteSubmit = async () => {
@@ -75,8 +134,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
       setErrorMsg('');
       const success = await PollService.castVote(poll.id, selectedOptionIds, voterName.trim());
       if (success) {
+        clearPollDraft(poll.id);
         setVotedOptionIds((prev) => [...prev, ...selectedOptionIds]);
         setSelectedOptionIds([]);
+        setDraftInfo(null);
         onVoteComplete();
       } else {
         setErrorMsg('투표 처리에 실패했습니다.');
@@ -166,10 +227,37 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
           </button>
         </div>
 
+        {toastMsg && (
+          <div className="mb-4 p-3 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 text-xs font-semibold flex items-center justify-between animate-fade-in shadow-lg">
+            <span>{toastMsg}</span>
+          </div>
+        )}
+
         {errorMsg && (
           <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Draft Loaded / Saved Notice Banner */}
+        {draftInfo && isOngoing && !hasVoted && (
+          <div className="mb-6 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Bookmark className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                중간 저장된 선택 항목이 불러와졌습니다.
+                {draftInfo.savedAt && <span className="text-amber-400/80 ml-1">({draftInfo.savedAt} 저장됨)</span>}
+              </span>
+            </div>
+            <button
+              onClick={handleResetDraft}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-semibold border border-amber-500/30 transition-colors shrink-0"
+              title="중간 저장 내용 초기화"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>초기화</span>
+            </button>
           </div>
         )}
 
@@ -182,7 +270,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
             <input
               type="text"
               value={voterName}
-              onChange={(e) => setVoterName(e.target.value)}
+              onChange={(e) => handleVoterNameChange(e.target.value)}
               placeholder="예: 홍길동 (공개 투표용 이름)"
               className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
             />
@@ -379,6 +467,18 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({ poll, onClose,
             >
               닫기
             </button>
+
+            {isOngoing && !hasVoted && (
+              <button
+                type="button"
+                onClick={handleManualSaveDraft}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 font-medium text-sm transition-all shadow-sm"
+                title="투표 선택 사항을 임시로 중간 저장합니다"
+              >
+                <Save className="w-4 h-4 text-indigo-400" />
+                <span>중간 저장</span>
+              </button>
+            )}
 
             {isOngoing && (
               <button

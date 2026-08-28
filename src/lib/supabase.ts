@@ -17,6 +17,7 @@ const INITIAL_MOCK_POLLS: Poll[] = [];
 
 const LOCAL_STORAGE_POLLS_KEY = 'jb_vote_site_polls';
 const LOCAL_STORAGE_VOTES_KEY = 'jb_vote_site_user_votes';
+const LOCAL_STORAGE_DRAFTS_KEY = 'jb_vote_site_poll_drafts';
 
 export function getVoterIdentifier(): string {
   let id = localStorage.getItem('jb_vote_voter_id');
@@ -25,6 +26,57 @@ export function getVoterIdentifier(): string {
     localStorage.setItem('jb_vote_voter_id', id);
   }
   return id;
+}
+
+export interface PollDraft {
+  selectedOptionIds: string[];
+  voterName: string;
+  savedAt: string;
+}
+
+export function getPollDraft(pollId: string): PollDraft | null {
+  try {
+    const drafts = JSON.parse(localStorage.getItem(LOCAL_STORAGE_DRAFTS_KEY) || '{}');
+    const draft = drafts[pollId];
+    if (draft && (draft.selectedOptionIds?.length > 0 || draft.voterName?.trim())) {
+      return draft;
+    }
+  } catch (e) {
+    console.error('Failed to parse poll drafts:', e);
+  }
+  return null;
+}
+
+export function savePollDraft(pollId: string, selectedOptionIds: string[], voterName: string): void {
+  try {
+    const drafts = JSON.parse(localStorage.getItem(LOCAL_STORAGE_DRAFTS_KEY) || '{}');
+    if (selectedOptionIds.length === 0 && !voterName.trim()) {
+      delete drafts[pollId];
+    } else {
+      drafts[pollId] = {
+        selectedOptionIds,
+        voterName: voterName.trim(),
+        savedAt: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      };
+    }
+    localStorage.setItem(LOCAL_STORAGE_DRAFTS_KEY, JSON.stringify(drafts));
+  } catch (e) {
+    console.error('Failed to save poll draft:', e);
+  }
+}
+
+export function clearPollDraft(pollId: string): void {
+  try {
+    const drafts = JSON.parse(localStorage.getItem(LOCAL_STORAGE_DRAFTS_KEY) || '{}');
+    delete drafts[pollId];
+    localStorage.setItem(LOCAL_STORAGE_DRAFTS_KEY, JSON.stringify(drafts));
+  } catch (e) {
+    console.error('Failed to clear poll draft:', e);
+  }
+}
+
+export function hasPollDraft(pollId: string): boolean {
+  return getPollDraft(pollId) !== null;
 }
 
 export function getUserVotedOptionIds(pollId: string): string[] {

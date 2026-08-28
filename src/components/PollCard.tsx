@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, ShieldCheck, UserCheck, CheckCircle2, Vote, ArrowRight } from 'lucide-react';
+import { Clock, ShieldCheck, UserCheck, CheckCircle2, Vote, ArrowRight, Bookmark } from 'lucide-react';
 import type { Poll } from '../types/vote';
-import { getUserVotedOptionId } from '../lib/supabase';
+import { getUserVotedOptionId, hasPollDraft } from '../lib/supabase';
 
 
 interface PollCardProps {
@@ -11,6 +11,7 @@ interface PollCardProps {
 
 export const PollCard: React.FC<PollCardProps> = ({ poll, onSelect }) => {
   const [hasVoted, setHasVoted] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
 
   const now = new Date();
@@ -26,7 +27,9 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, onSelect }) => {
     : 0;
 
   useEffect(() => {
-    setHasVoted(Boolean(getUserVotedOptionId(poll.id)));
+    const voted = Boolean(getUserVotedOptionId(poll.id));
+    setHasVoted(voted);
+    setHasDraft(!voted && hasPollDraft(poll.id));
 
     const updateTimer = () => {
       const current = new Date();
@@ -98,13 +101,21 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, onSelect }) => {
             )}
           </div>
 
-          {/* User Voted Badge */}
-          {hasVoted && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              참여 완료
-            </span>
-          )}
+          {/* Badges */}
+          <div className="flex items-center gap-1.5">
+            {hasDraft && !hasVoted && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                중간 저장됨
+              </span>
+            )}
+            {hasVoted && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                참여 완료
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Title */}
