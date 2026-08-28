@@ -325,29 +325,73 @@ export const PollService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // Delete previous votes for this user on this poll to support re-voting / changing vote
-        await supabase
+        // 1. Fetch existing votes for this user on this poll from Supabase
+        const { data: existingVotes, error: findErr } = await supabase
           .from('votes')
-          .delete()
+          .select('id, option_id')
           .eq('poll_id', pollId)
           .like('user_identifier', `${voterId}_%`);
 
-        const inserts = targets.map((optId) => ({
-          poll_id: pollId,
-          option_id: optId,
-          user_identifier: voterId + '_' + optId,
-          voter_name: voterName || null,
-        }));
+        if (findErr) console.warn('Supabase fetch existing votes error:', findErr);
 
-        const { error: voteErr } = await supabase.from('votes').insert(inserts);
+        const existingOptIds = (existingVotes || []).map((v: { option_id: string }) => v.option_id);
 
-        if (voteErr) {
-          console.warn('Vote insert error:', voteErr);
+        // 2. Delete votes that are no longer selected by user
+        const toDelete = (existingVotes || []).filter((v: { option_id: string }) => !targets.includes(v.option_id));
+        if (toDelete.length > 0) {
+          const deleteIds = toDelete.map((v: { id: string }) => v.id);
+          const { error: delErr } = await supabase.from('votes').delete().in('id', deleteIds);
+          if (delErr) console.warn('Supabase delete vote error:', delErr);
         }
+
+        // 3. Insert new targets that were not previously in DB
+        const toInsert = targets.filter((optId) => !existingOptIds.includes(optId));
+        if (toInsert.length > 0) {
+          const inserts = toInsert.map((optId) => ({
+            poll_id: pollId,
+            option_id: optId,
+            user_identifier: voterId + '_' + optId,
+            voter_name: voterName || null,
+          }));
+          const { error: voteErr } = await supabase.from('votes').insert(inserts);
+          if (voteErr) {
+            console.error('Supabase vote insert error:', voteErr);
+            throw voteErr;
+          }
+        }
+
+        // 4. Update vote_count on poll_options table in Supabase
+        const { data: allVotes } = await supabase
+          .from('votes')
+          .select('option_id')
+          .eq('poll_id', pollId);
+
+        if (allVotes) {
+          const counts: Record<string, number> = {};
+          allVotes.forEach((row: { option_id: string }) => {
+            counts[row.option_id] = (counts[row.option_id] || 0) + 1;
+          });
+
+          const { data: pollOptions } = await supabase
+            .from('poll_options')
+            .select('id')
+            .eq('poll_id', pollId);
+
+          if (pollOptions) {
+            for (const opt of pollOptions) {
+              const newCount = counts[opt.id] || 0;
+              await supabase
+                .from('poll_options')
+                .update({ vote_count: newCount })
+                .eq('id', opt.id);
+            }
+          }
+        }
+
         markUserVotedOptions(pollId, targets);
         return true;
       } catch (err) {
-        console.warn('Supabase castVote failed, trying local increment:', err);
+        console.warn('Supabase castVote failed, trying local store voting fallback:', err);
       }
     }
 
