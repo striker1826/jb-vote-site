@@ -160,9 +160,7 @@ export function getUserVotedOptionIds(pollId: string): string[] {
 
 export function markUserVotedOptions(pollId: string, optionIds: string[]) {
   const votes = JSON.parse(localStorage.getItem(LOCAL_STORAGE_VOTES_KEY) || '{}');
-  const existing = Array.isArray(votes[pollId]) ? votes[pollId] : (votes[pollId] ? [votes[pollId]] : []);
-  const combined = Array.from(new Set([...existing, ...optionIds]));
-  votes[pollId] = combined;
+  votes[pollId] = optionIds;
   localStorage.setItem(LOCAL_STORAGE_VOTES_KEY, JSON.stringify(votes));
 }
 
@@ -191,12 +189,36 @@ export const PollService = {
 
         const { data: options, error: optsErr } = await supabase
           .from('poll_options')
-          .select('*');
+          .select('*')
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true });
 
         if (optsErr) throw optsErr;
 
+        const { data: votesData } = await supabase
+          .from('votes')
+          .select('option_id');
+
+        const voteCountsByOption: Record<string, number> = {};
+        if (votesData && votesData.length > 0) {
+          votesData.forEach((v: { option_id: string }) => {
+            voteCountsByOption[v.option_id] = (voteCountsByOption[v.option_id] || 0) + 1;
+          });
+        }
+
         return (polls || []).map((poll: Poll) => {
-          const pollOptions = (options || []).filter((opt: PollOption) => opt.poll_id === poll.id);
+          const pollOptions = (options || [])
+            .filter((opt: PollOption) => opt.poll_id === poll.id)
+            .map((opt: PollOption) => ({
+              ...opt,
+              vote_count: votesData ? (voteCountsByOption[opt.id] || 0) : opt.vote_count,
+            }))
+            .sort((a: PollOption, b: PollOption) => {
+              if (a.created_at && b.created_at && a.created_at !== b.created_at) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return a.id.localeCompare(b.id);
+            });
           return {
             ...poll,
             options: pollOptions,
@@ -255,7 +277,9 @@ export const PollService = {
         const { data: options, error: optsErr } = await supabase
           .from('poll_options')
           .insert(optionInserts)
-          .select();
+          .select()
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true });
 
         if (optsErr) throw optsErr;
 
@@ -301,6 +325,13 @@ export const PollService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
+        // Delete previous votes for this user on this poll to support re-voting / changing vote
+        await supabase
+          .from('votes')
+          .delete()
+          .eq('poll_id', pollId)
+          .like('user_identifier', `${voterId}_%`);
+
         const inserts = targets.map((optId) => ({
           poll_id: pollId,
           option_id: optId,
@@ -321,9 +352,18 @@ export const PollService = {
     }
 
     // Fallback local store voting
+    const previousVotedOptionIds = getUserVotedOptionIds(pollId);
     const polls = await PollService.fetchPolls();
     const targetPollIndex = polls.findIndex((p) => p.id === pollId);
     if (targetPollIndex !== -1 && polls[targetPollIndex].options) {
+      // Decrement vote counts for previously voted options
+      previousVotedOptionIds.forEach((prevId) => {
+        const optionIndex = polls[targetPollIndex].options!.findIndex((o) => o.id === prevId);
+        if (optionIndex !== -1 && polls[targetPollIndex].options![optionIndex].vote_count > 0) {
+          polls[targetPollIndex].options![optionIndex].vote_count -= 1;
+        }
+      });
+      // Increment vote counts for newly target options
       targets.forEach((optId) => {
         const optionIndex = polls[targetPollIndex].options!.findIndex((o) => o.id === optId);
         if (optionIndex !== -1) {

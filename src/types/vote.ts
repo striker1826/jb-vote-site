@@ -4,6 +4,7 @@ export interface PollOption {
   text: string;
   link_url?: string;
   vote_count: number;
+  created_at?: string;
 }
 
 export interface Poll {

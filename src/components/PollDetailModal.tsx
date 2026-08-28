@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   X,
   Vote,
-  CheckCircle2,
   ShieldCheck,
   UserCheck,
   Clock,
@@ -114,8 +113,8 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
           setDraftInfo(null);
         }
       } else {
-        setSelectedOptionIds([]);
-        setVoterName("");
+        setSelectedOptionIds(userVotes);
+        setVoterName(user?.name || "");
         setDraftInfo(null);
       }
     }
@@ -143,7 +142,6 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
   };
 
   const toggleOptionSelection = (optionId: string) => {
-    if (votedOptionIds.includes(optionId)) return;
     if (!user) {
       setErrorMsg("투표에 참여하려면 먼저 카카오 로그인이 필요합니다.");
       return;
@@ -155,7 +153,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
         : [...prev, optionId];
 
       // Auto-save draft on selection change
-      if (isOngoing && !hasVoted) {
+      if (isOngoing) {
         savePollDraft(poll.id, next, voterName);
       }
       return next;
@@ -164,13 +162,13 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
 
   const handleVoterNameChange = (val: string) => {
     setVoterName(val);
-    if (isOngoing && !hasVoted) {
+    if (isOngoing) {
       savePollDraft(poll.id, selectedOptionIds, val);
     }
   };
 
   const handleManualSaveDraft = () => {
-    if (!poll || hasVoted || !isOngoing) return;
+    if (!poll || !isOngoing) return;
     if (!user) {
       setErrorMsg("중간 저장을 사용하려면 카카오 로그인이 필요합니다.");
       return;
@@ -188,7 +186,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
   const handleResetDraft = () => {
     if (!poll) return;
     clearPollDraft(poll.id);
-    setSelectedOptionIds([]);
+    setSelectedOptionIds(votedOptionIds);
     setVoterName(user?.name || "");
     setDraftInfo(null);
     showToast("🗑️ 중간 저장된 내용이 초기화되었습니다.");
@@ -214,6 +212,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
     try {
       setIsSubmitting(true);
       setErrorMsg("");
+      const isReVote = votedOptionIds.length > 0;
       const success = await PollService.castVote(
         poll.id,
         selectedOptionIds,
@@ -222,9 +221,13 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
       );
       if (success) {
         clearPollDraft(poll.id);
-        setVotedOptionIds((prev) => [...prev, ...selectedOptionIds]);
-        setSelectedOptionIds([]);
+        setVotedOptionIds(selectedOptionIds);
         setDraftInfo(null);
+        showToast(
+          isReVote
+            ? "✏️ 투표 선택 항목이 성공적으로 변경되었습니다!"
+            : "🎉 투표가 성공적으로 제출되었습니다!"
+        );
         onVoteComplete();
       } else {
         setErrorMsg("투표 처리에 실패했습니다.");
@@ -460,14 +463,12 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
               <div
                 key={option.id}
                 onClick={() => {
-                  if (isOngoing && !isMyVote) {
+                  if (isOngoing) {
                     toggleOptionSelection(option.id);
                   }
                 }}
                 className={`relative overflow-hidden p-4 rounded-xl border transition-all ${
-                  isOngoing && !isMyVote
-                    ? "cursor-pointer hover:border-indigo-500/60"
-                    : ""
+                  isOngoing ? "cursor-pointer hover:border-indigo-500/60" : ""
                 } ${
                   isSelected
                     ? "bg-indigo-600/10 border-indigo-500 text-white ring-1 ring-indigo-500"
@@ -491,16 +492,12 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
                     {/* Checkbox Icon */}
                     <div
                       className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                        isMyVote
-                          ? "bg-emerald-600 text-white"
-                          : isSelected
-                            ? "bg-indigo-600 border-indigo-500 text-white"
-                            : "border border-slate-700 bg-slate-900 text-slate-600"
+                        isSelected
+                          ? "bg-indigo-600 border-indigo-500 text-white"
+                          : "border border-slate-700 bg-slate-900 text-slate-600"
                       }`}
                     >
-                      {isMyVote ? (
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                      ) : isSelected ? (
+                      {isSelected ? (
                         <CheckSquare className="w-3.5 h-3.5" />
                       ) : (
                         <Square className="w-3.5 h-3.5 opacity-40" />
@@ -648,7 +645,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
               닫기
             </button>
 
-            {isOngoing && !hasVoted && (
+            {isOngoing && (
               <button
                 type="button"
                 onClick={handleManualSaveDraft}
@@ -660,7 +657,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
               </button>
             )}
 
-            {isOngoing && !hasVoted && (
+            {isOngoing && (
               user ? (
                 <button
                   onClick={handleVoteSubmit}
@@ -671,9 +668,11 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
                   <span>
                     {isSubmitting
                       ? "제출 중..."
-                      : selectedOptionIds.length > 0
-                        ? `${selectedOptionIds.length}개 항목 투표하기`
-                        : "투표하기"}
+                      : hasVoted
+                        ? `${selectedOptionIds.length}개 항목으로 투표 변경`
+                        : selectedOptionIds.length > 0
+                          ? `${selectedOptionIds.length}개 항목 투표하기`
+                          : "투표하기"}
                   </span>
                 </button>
               ) : (
