@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, ShieldCheck, UserCheck, CheckCircle2, Vote, ArrowRight, Bookmark } from 'lucide-react';
+import { Clock, ShieldCheck, UserCheck, Vote, ArrowRight } from 'lucide-react';
 import type { Poll } from '../types/vote';
-import { PollService, hasPollDraft, type UserProfile } from '../lib/supabase';
+import { PollService, type UserProfile } from '../lib/supabase';
 
 interface PollCardProps {
   poll: Poll;
@@ -11,7 +11,6 @@ interface PollCardProps {
 
 export const PollCard: React.FC<PollCardProps> = ({ poll, user, onSelect }) => {
   const [hasVoted, setHasVoted] = useState(false);
-  const [hasDraft, setHasDraft] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
 
   const now = new Date();
@@ -28,9 +27,7 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, user, onSelect }) => {
 
   useEffect(() => {
     PollService.fetchUserVotedOptionIds(poll.id, user?.id).then((userVotes) => {
-      const voted = userVotes.length > 0;
-      setHasVoted(voted);
-      setHasDraft(!voted && hasPollDraft(poll.id));
+      setHasVoted(userVotes.length > 0);
     });
 
     const updateTimer = () => {
@@ -105,12 +102,6 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, user, onSelect }) => {
 
           {/* Badges */}
           <div className="flex items-center gap-1.5">
-            {hasDraft && !hasVoted && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
-                중간 저장됨
-              </span>
-            )}
             {hasVoted && (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
                 <CheckCircle2 className="w-3.5 h-3.5" />

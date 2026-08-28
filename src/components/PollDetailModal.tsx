@@ -13,21 +13,12 @@ import {
   Square,
   ExternalLink,
   Link as LinkIcon,
-  Bookmark,
-  Save,
-  RotateCcw,
   MessageCircle,
   Play,
 } from "lucide-react";
 
 import type { Poll } from "../types/vote";
-import {
-  PollService,
-  getPollDraft,
-  savePollDraft,
-  clearPollDraft,
-  AuthService,
-} from "../lib/supabase";
+import { PollService, AuthService } from "../lib/supabase";
 import type { UserProfile } from "../lib/supabase";
 import {
   YouTubePlaylistPlayer,
@@ -54,11 +45,6 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  // Draft state & feedback
-  const [draftInfo, setDraftInfo] = useState<{
-    isLoaded: boolean;
-    savedAt?: string;
-  } | null>(null);
   const [toastMsg, setToastMsg] = useState<string>("");
 
   // New option add state
@@ -99,22 +85,8 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
 
       PollService.fetchUserVotedOptionIds(poll.id, user?.id).then((userVotes) => {
         setVotedOptionIds(userVotes);
-        if (userVotes.length === 0) {
-          const draft = getPollDraft(poll.id);
-          if (draft) {
-            setSelectedOptionIds(draft.selectedOptionIds || []);
-            setVoterName(draft.voterName || user?.name || "");
-            setDraftInfo({ isLoaded: true, savedAt: draft.savedAt });
-          } else {
-            setSelectedOptionIds([]);
-            setVoterName(user?.name || "");
-            setDraftInfo(null);
-          }
-        } else {
-          setSelectedOptionIds(userVotes);
-          setVoterName(user?.name || "");
-          setDraftInfo(null);
-        }
+        setSelectedOptionIds(userVotes);
+        setVoterName(user?.name || "");
       });
     }
   }, [poll, user]);
@@ -147,48 +119,14 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
     }
 
     setSelectedOptionIds((prev) => {
-      const next = prev.includes(optionId)
+      return prev.includes(optionId)
         ? prev.filter((id) => id !== optionId)
         : [...prev, optionId];
-
-      // Auto-save draft on selection change
-      if (isOngoing) {
-        savePollDraft(poll.id, next, voterName);
-      }
-      return next;
     });
   };
 
   const handleVoterNameChange = (val: string) => {
     setVoterName(val);
-    if (isOngoing) {
-      savePollDraft(poll.id, selectedOptionIds, val);
-    }
-  };
-
-  const handleManualSaveDraft = () => {
-    if (!poll || !isOngoing) return;
-    if (!user) {
-      setErrorMsg("중간 저장을 사용하려면 카카오 로그인이 필요합니다.");
-      return;
-    }
-    savePollDraft(poll.id, selectedOptionIds, voterName);
-    const nowTime = new Date().toLocaleTimeString("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    setDraftInfo({ isLoaded: true, savedAt: nowTime });
-    showToast("💾 선택 항목이 중간 저장되었습니다.");
-  };
-
-  const handleResetDraft = () => {
-    if (!poll) return;
-    clearPollDraft(poll.id);
-    setSelectedOptionIds(votedOptionIds);
-    setVoterName(user?.name || "");
-    setDraftInfo(null);
-    showToast("🗑️ 중간 저장된 내용이 초기화되었습니다.");
   };
 
   const handleVoteSubmit = async () => {
@@ -219,9 +157,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
         user?.id,
       );
       if (success) {
-        clearPollDraft(poll.id);
         setVotedOptionIds(selectedOptionIds);
-        setDraftInfo(null);
         showToast(
           isReVote
             ? "✏️ 투표 선택 항목이 성공적으로 변경되었습니다!"
@@ -643,18 +579,6 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
             >
               닫기
             </button>
-
-            {isOngoing && (
-              <button
-                type="button"
-                onClick={handleManualSaveDraft}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 font-medium text-sm transition-all shadow-sm"
-                title="투표 선택 사항을 임시로 중간 저장합니다"
-              >
-                <Save className="w-4 h-4 text-indigo-400" />
-                <span>중간 저장</span>
-              </button>
-            )}
 
             {isOngoing && (
               user ? (
