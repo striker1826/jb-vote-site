@@ -72,6 +72,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
   // Playlist state
   const [isPlaylistActive, setIsPlaylistActive] = useState<boolean>(false);
   const [playlistStartIndex, setPlaylistStartIndex] = useState<number>(0);
+  const [activeQueue, setActiveQueue] = useState<PlaylistItem[]>([]);
 
   const playlistItems: PlaylistItem[] = (poll?.options || [])
     .map((opt) => {
@@ -85,6 +86,10 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
       };
     })
     .filter((item): item is PlaylistItem => item !== null);
+
+  const selectedPlaylistItems: PlaylistItem[] = playlistItems.filter((item) =>
+    selectedOptionIds.includes(item.id),
+  );
 
   useEffect(() => {
     if (poll) {
@@ -388,9 +393,9 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
         )}
 
         {/* Active YouTube Playlist Player */}
-        {isPlaylistActive && playlistItems.length > 0 && (
+        {isPlaylistActive && activeQueue.length > 0 && (
           <YouTubePlaylistPlayer
-            items={playlistItems}
+            items={activeQueue}
             initialIndex={playlistStartIndex}
             onClose={() => setIsPlaylistActive(false)}
           />
@@ -398,16 +403,35 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
 
         {/* Options List / Results */}
         <div className="space-y-3 mb-6">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-400 mb-2">
             <span className="flex items-center gap-1.5">
               <BarChart3 className="w-4 h-4 text-indigo-400" />
               투표 항목 목록 (여러 개 선택 가능)
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Selected Songs Playlist Button */}
+              {selectedPlaylistItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveQueue(selectedPlaylistItems);
+                    setPlaylistStartIndex(0);
+                    setIsPlaylistActive(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95"
+                  title="선택한 곡들만 순서대로 연속 재생합니다"
+                >
+                  <Play className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
+                  <span>선택 곡 연속 재생 ({selectedPlaylistItems.length}곡)</span>
+                </button>
+              )}
+
+              {/* All Songs Playlist Button */}
               {playlistItems.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
+                    setActiveQueue(playlistItems);
                     setPlaylistStartIndex(0);
                     setIsPlaylistActive(true);
                   }}
@@ -494,6 +518,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
                             onClick={(e) => {
                               e.stopPropagation();
                               const idx = playlistItems.findIndex((item) => item.id === option.id);
+                              setActiveQueue(playlistItems);
                               setPlaylistStartIndex(idx !== -1 ? idx : 0);
                               setIsPlaylistActive(true);
                             }}

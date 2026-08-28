@@ -42,6 +42,10 @@ export const YouTubePlaylistPlayer: React.FC<YouTubePlaylistPlayerProps> = ({
   const currentItem = items[currentIndex];
 
   useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex, items]);
+
+  useEffect(() => {
     // Load YouTube iFrame API if not already loaded
     if (!window.YT) {
       const tag = document.createElement('script');
