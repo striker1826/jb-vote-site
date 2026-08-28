@@ -13,12 +13,12 @@ import {
   CheckSquare,
   Square,
   ExternalLink,
-  Video,
   Link as LinkIcon,
   Bookmark,
   Save,
   RotateCcw,
   MessageCircle,
+  Play,
 } from "lucide-react";
 
 import type { Poll } from "../types/vote";
@@ -31,6 +31,11 @@ import {
   AuthService,
 } from "../lib/supabase";
 import type { UserProfile } from "../lib/supabase";
+import {
+  YouTubePlaylistPlayer,
+  extractYouTubeId,
+} from "./YouTubePlaylistPlayer";
+import type { PlaylistItem } from "./YouTubePlaylistPlayer";
 
 interface PollDetailModalProps {
   poll: Poll | null;
@@ -63,6 +68,23 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
   const [newOptionLink, setNewOptionLink] = useState<string>("");
   const [isAddingOption, setIsAddingOption] = useState<boolean>(false);
   const [showAddInput, setShowAddInput] = useState<boolean>(false);
+
+  // Playlist state
+  const [isPlaylistActive, setIsPlaylistActive] = useState<boolean>(false);
+  const [playlistStartIndex, setPlaylistStartIndex] = useState<number>(0);
+
+  const playlistItems: PlaylistItem[] = (poll?.options || [])
+    .map((opt) => {
+      const videoId = extractYouTubeId(opt.link_url);
+      if (!videoId) return null;
+      return {
+        id: opt.id,
+        title: opt.text,
+        linkUrl: opt.link_url || "",
+        videoId,
+      };
+    })
+    .filter((item): item is PlaylistItem => item !== null);
 
   useEffect(() => {
     if (poll) {
@@ -238,11 +260,6 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
     }
   };
 
-  const isYouTubeUrl = (url?: string) => {
-    if (!url) return false;
-    return url.includes("youtube.com") || url.includes("youtu.be");
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8">
@@ -370,6 +387,15 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
           </div>
         )}
 
+        {/* Active YouTube Playlist Player */}
+        {isPlaylistActive && playlistItems.length > 0 && (
+          <YouTubePlaylistPlayer
+            items={playlistItems}
+            initialIndex={playlistStartIndex}
+            onClose={() => setIsPlaylistActive(false)}
+          />
+        )}
+
         {/* Options List / Results */}
         <div className="space-y-3 mb-6">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
@@ -377,7 +403,23 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
               <BarChart3 className="w-4 h-4 text-indigo-400" />
               투표 항목 목록 (여러 개 선택 가능)
             </span>
-            <span>총 {totalVotes}표</span>
+            <div className="flex items-center gap-3">
+              {playlistItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlaylistStartIndex(0);
+                    setIsPlaylistActive(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-rose-500/20 to-indigo-500/20 hover:from-rose-500/30 hover:to-indigo-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95"
+                  title="모든 곡을 이탈 없이 연속 재생합니다"
+                >
+                  <Play className="w-3.5 h-3.5 fill-rose-400 text-rose-400" />
+                  <span>전곡 연속 재생 ({playlistItems.length}곡)</span>
+                </button>
+              )}
+              <span>총 {totalVotes}표</span>
+            </div>
           </div>
 
           {poll.options?.map((option) => {
@@ -388,6 +430,7 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
             const isMyVote = votedOptionIds.includes(option.id);
             const isSelected = selectedOptionIds.includes(option.id);
             const hasLink = Boolean(option.link_url && option.link_url.trim());
+            const videoId = extractYouTubeId(option.link_url);
 
             return (
               <div
@@ -445,29 +488,33 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
 
                       {/* YouTube / Reference Link Button */}
                       {hasLink && (
-                        <a
-                          href={option.link_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors ${
-                            isYouTubeUrl(option.link_url)
-                              ? "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30"
-                              : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30"
-                          }`}
-                        >
-                          {isYouTubeUrl(option.link_url) ? (
-                            <Video className="w-3 h-3 text-rose-400" />
-                          ) : (
+                        videoId ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const idx = playlistItems.findIndex((item) => item.id === option.id);
+                              setPlaylistStartIndex(idx !== -1 ? idx : 0);
+                              setIsPlaylistActive(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30 transition-all hover:scale-105 shadow-sm"
+                            title="이 곡부터 연속 재생을 시작합니다"
+                          >
+                            <Play className="w-3 h-3 fill-rose-400 text-rose-400" />
+                            <span>연속 재생하기</span>
+                          </button>
+                        ) : (
+                          <a
+                            href={option.link_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30 transition-colors"
+                          >
                             <ExternalLink className="w-3 h-3 text-indigo-400" />
-                          )}
-
-                          <span>
-                            {isYouTubeUrl(option.link_url)
-                              ? "유튜브 듣기"
-                              : "링크 보러가기"}
-                          </span>
-                        </a>
+                            <span>링크 보러가기</span>
+                          </a>
+                        )
                       )}
 
                       {isMyVote && (
