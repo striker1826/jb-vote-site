@@ -1,9 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
-import type { Poll, PollOption } from '../types/vote';
+import { createClient } from "@supabase/supabase-js";
+import type { Poll, PollOption } from "../types/vote";
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
@@ -21,22 +21,22 @@ export interface UserProfile {
 export const AuthService = {
   async signInWithKakao() {
     if (!isSupabaseConfigured || !supabase) {
-      alert('Supabase가 연결되어 있지 않습니다. .env 설정을 확인해주세요.');
+      alert("Supabase가 연결되어 있지 않습니다. .env 설정을 확인해주세요.");
       return;
     }
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'kakao',
+      provider: "kakao",
       options: {
-        scopes: 'profile_nickname profile_image',
+        scopes: "profile_nickname profile_image",
         queryParams: {
-          scope: 'profile_nickname,profile_image',
+          scope: "profile_nickname,profile_image",
         },
         redirectTo: window.location.origin,
       },
     });
     if (error) {
-      console.error('Kakao login error:', error);
-      alert('카카오 로그인 요청에 실패했습니다: ' + error.message);
+      console.error("Kakao login error:", error);
+      alert("카카오 로그인 요청에 실패했습니다: " + error.message);
     }
   },
 
@@ -48,11 +48,17 @@ export const AuthService = {
 
   async getCurrentUser(): Promise<UserProfile | null> {
     if (!isSupabaseConfigured || !supabase) return null;
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return null;
     return {
       id: user.id,
-      name: user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.preferred_username || '카카오 사용자',
+      name:
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.user_metadata?.preferred_username ||
+        "카카오 사용자",
       avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
       email: user.email,
     };
@@ -63,12 +69,18 @@ export const AuthService = {
       callback(null);
       return () => {};
     }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const u = session.user;
         callback({
           id: u.id,
-          name: u.user_metadata?.full_name || u.user_metadata?.name || u.user_metadata?.preferred_username || '카카오 사용자',
+          name:
+            u.user_metadata?.full_name ||
+            u.user_metadata?.name ||
+            u.user_metadata?.preferred_username ||
+            "카카오 사용자",
           avatar_url: u.user_metadata?.avatar_url || u.user_metadata?.picture,
           email: u.email,
         });
@@ -80,13 +92,14 @@ export const AuthService = {
   },
 };
 
-let inMemorySessionVoterId = '';
+let inMemorySessionVoterId = "";
 export function getVoterIdentifier(kakaoUserId?: string): string {
   if (kakaoUserId) {
-    return 'kakao_' + kakaoUserId;
+    return "kakao_" + kakaoUserId;
   }
   if (!inMemorySessionVoterId) {
-    inMemorySessionVoterId = 'voter_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+    inMemorySessionVoterId =
+      "voter_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
   }
   return inMemorySessionVoterId;
 }
@@ -102,36 +115,47 @@ export const PollService = {
     if (isSupabaseConfigured && supabase) {
       try {
         const { data: polls, error: pollsErr } = await supabase
-          .from('polls')
-          .select('*')
-          .order('created_at', { ascending: false });
+          .from("polls")
+          .select("*")
+          .order("created_at", { ascending: false });
 
         if (pollsErr) throw pollsErr;
 
         const { data: options, error: optsErr } = await supabase
-          .from('poll_options')
-          .select('*')
-          .order('created_at', { ascending: true })
-          .order('id', { ascending: true });
+          .from("poll_options")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true });
 
         if (optsErr) throw optsErr;
 
         const { data: votesData } = await supabase
-          .from('votes')
-          .select('option_id, voter_name, user_identifier');
+          .from("votes")
+          .select("option_id, voter_name, user_identifier");
 
         const voteCountsByOption: Record<string, number> = {};
-        const votersByOption: Record<string, { voter_name?: string; user_identifier: string }[]> = {};
+        const votersByOption: Record<
+          string,
+          { voter_name?: string; user_identifier: string }[]
+        > = {};
 
         if (votesData && votesData.length > 0) {
-          votesData.forEach((v: { option_id: string; voter_name?: string; user_identifier: string }) => {
-            voteCountsByOption[v.option_id] = (voteCountsByOption[v.option_id] || 0) + 1;
-            if (!votersByOption[v.option_id]) votersByOption[v.option_id] = [];
-            votersByOption[v.option_id].push({
-              voter_name: v.voter_name || undefined,
-              user_identifier: v.user_identifier,
-            });
-          });
+          votesData.forEach(
+            (v: {
+              option_id: string;
+              voter_name?: string;
+              user_identifier: string;
+            }) => {
+              voteCountsByOption[v.option_id] =
+                (voteCountsByOption[v.option_id] || 0) + 1;
+              if (!votersByOption[v.option_id])
+                votersByOption[v.option_id] = [];
+              votersByOption[v.option_id].push({
+                voter_name: v.voter_name || undefined,
+                user_identifier: v.user_identifier,
+              });
+            },
+          );
         }
 
         return (polls || []).map((poll: Poll) => {
@@ -139,11 +163,17 @@ export const PollService = {
             .filter((opt: PollOption) => opt.poll_id === poll.id)
             .map((opt: PollOption) => ({
               ...opt,
-              vote_count: votesData ? (voteCountsByOption[opt.id] || 0) : opt.vote_count,
+              vote_count: votesData
+                ? voteCountsByOption[opt.id] || 0
+                : opt.vote_count,
               voters: votersByOption[opt.id] || [],
             }))
             .sort((a: PollOption, b: PollOption) => {
-              if (a.created_at && b.created_at && a.created_at !== b.created_at) {
+              if (
+                a.created_at &&
+                b.created_at &&
+                a.created_at !== b.created_at
+              ) {
                 return a.created_at.localeCompare(b.created_at);
               }
               return a.id.localeCompare(b.id);
@@ -154,7 +184,7 @@ export const PollService = {
           };
         });
       } catch (err) {
-        console.error('Supabase fetch error:', err);
+        console.error("Supabase fetch error:", err);
       }
     }
     return [];
@@ -168,16 +198,18 @@ export const PollService = {
     end_at: string;
     options: (string | CreateOptionInput)[];
   }): Promise<Poll> {
-    const formattedOptions: CreateOptionInput[] = newPollData.options.map((opt) =>
-      typeof opt === 'string' ? { text: opt, link_url: '' } : opt
+    const formattedOptions: CreateOptionInput[] = newPollData.options.map(
+      (opt) => (typeof opt === "string" ? { text: opt, link_url: "" } : opt),
     );
 
     if (!isSupabaseConfigured || !supabase) {
-      throw new Error('Supabase가 연결되어 있지 않습니다. .env 설정을 확인해주세요.');
+      throw new Error(
+        "Supabase가 연결되어 있지 않습니다. .env 설정을 확인해주세요.",
+      );
     }
 
     const { data: poll, error: pollErr } = await supabase
-      .from('polls')
+      .from("polls")
       .insert([
         {
           title: newPollData.title,
@@ -200,11 +232,11 @@ export const PollService = {
     }));
 
     const { data: options, error: optsErr } = await supabase
-      .from('poll_options')
+      .from("poll_options")
       .insert(optionInserts)
       .select()
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true });
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
 
     if (optsErr) throw optsErr;
 
@@ -214,7 +246,12 @@ export const PollService = {
     };
   },
 
-  async castVote(pollId: string, optionIds: string | string[], voterName?: string, kakaoUserId?: string): Promise<boolean> {
+  async castVote(
+    pollId: string,
+    optionIds: string | string[],
+    voterName?: string,
+    kakaoUserId?: string,
+  ): Promise<boolean> {
     const voterId = getVoterIdentifier(kakaoUserId);
     const targets = Array.isArray(optionIds) ? optionIds : [optionIds];
 
@@ -223,60 +260,76 @@ export const PollService = {
     try {
       // 1. Fetch existing votes for this poll from Supabase
       const { data: existingVotes, error: findErr } = await supabase
-        .from('votes')
-        .select('id, option_id, user_identifier')
-        .eq('poll_id', pollId);
+        .from("votes")
+        .select("id, option_id, user_identifier")
+        .eq("poll_id", pollId);
 
-      if (findErr) console.warn('Supabase fetch existing votes error:', findErr);
+      if (findErr)
+        console.warn("Supabase fetch existing votes error:", findErr);
 
       // Filter in JS using startsWith for exact voterId matching
-      const userExistingVotes = (existingVotes || []).filter((v: { user_identifier: string }) =>
-        v.user_identifier.startsWith(`${voterId}_`)
+      const userExistingVotes = (existingVotes || []).filter(
+        (v: { user_identifier: string }) =>
+          v.user_identifier.startsWith(`${voterId}_`),
       );
 
-      const existingOptIds = userExistingVotes.map((v: { option_id: string }) => v.option_id);
+      const existingOptIds = userExistingVotes.map(
+        (v: { option_id: string }) => v.option_id,
+      );
 
       // Update voter_name on existing retained votes if voterName is provided
       if (voterName && voterName.trim() && userExistingVotes.length > 0) {
-        const retainedVotes = userExistingVotes.filter((v: { option_id: string }) => targets.includes(v.option_id));
+        const retainedVotes = userExistingVotes.filter(
+          (v: { option_id: string }) => targets.includes(v.option_id),
+        );
         if (retainedVotes.length > 0) {
           const retainedIds = retainedVotes.map((v: { id: string }) => v.id);
-          await supabase.from('votes').update({ voter_name: voterName.trim() }).in('id', retainedIds);
+          await supabase
+            .from("votes")
+            .update({ voter_name: voterName.trim() })
+            .in("id", retainedIds);
         }
       }
 
       // 2. Delete votes for options that are no longer selected by user
-      const toDelete = userExistingVotes.filter((v: { option_id: string }) => !targets.includes(v.option_id));
+      const toDelete = userExistingVotes.filter(
+        (v: { option_id: string }) => !targets.includes(v.option_id),
+      );
       if (toDelete.length > 0) {
         const deleteIds = toDelete.map((v: { id: string }) => v.id);
-        const { error: delErr } = await supabase.from('votes').delete().in('id', deleteIds);
+        const { error: delErr } = await supabase
+          .from("votes")
+          .delete()
+          .in("id", deleteIds);
         if (delErr) {
-          console.error('Supabase delete vote error:', delErr);
+          console.error("Supabase delete vote error:", delErr);
           throw delErr;
         }
       }
 
       // 3. Insert new targets that were not previously in DB
-      const toInsert = targets.filter((optId) => !existingOptIds.includes(optId));
+      const toInsert = targets.filter(
+        (optId) => !existingOptIds.includes(optId),
+      );
       if (toInsert.length > 0) {
         const inserts = toInsert.map((optId) => ({
           poll_id: pollId,
           option_id: optId,
-          user_identifier: voterId + '_' + optId,
+          user_identifier: voterId + "_" + optId,
           voter_name: voterName || null,
         }));
-        const { error: voteErr } = await supabase.from('votes').insert(inserts);
+        const { error: voteErr } = await supabase.from("votes").insert(inserts);
         if (voteErr) {
-          console.error('Supabase vote insert error:', voteErr);
+          console.error("Supabase vote insert error:", voteErr);
           throw voteErr;
         }
       }
 
       // 4. Update vote_count on poll_options table in Supabase
       const { data: allVotes } = await supabase
-        .from('votes')
-        .select('option_id')
-        .eq('poll_id', pollId);
+        .from("votes")
+        .select("option_id")
+        .eq("poll_id", pollId);
 
       if (allVotes) {
         const counts: Record<string, number> = {};
@@ -285,62 +338,76 @@ export const PollService = {
         });
 
         const { data: pollOptions } = await supabase
-          .from('poll_options')
-          .select('id')
-          .eq('poll_id', pollId);
+          .from("poll_options")
+          .select("id")
+          .eq("poll_id", pollId);
 
         if (pollOptions) {
           for (const opt of pollOptions) {
             const newCount = counts[opt.id] || 0;
             await supabase
-              .from('poll_options')
+              .from("poll_options")
               .update({ vote_count: newCount })
-              .eq('id', opt.id);
+              .eq("id", opt.id);
           }
         }
       }
 
       return true;
     } catch (err) {
-      console.error('Supabase castVote failed:', err);
+      console.error("Supabase castVote failed:", err);
       return false;
     }
   },
 
-  async addOption(pollId: string, optionText: string, linkUrl?: string): Promise<PollOption | null> {
+  async addOption(
+    pollId: string,
+    optionText: string,
+    linkUrl?: string,
+  ): Promise<PollOption | null> {
     if (!isSupabaseConfigured || !supabase) return null;
     try {
       const { data, error } = await supabase
-        .from('poll_options')
-        .insert([{ poll_id: pollId, text: optionText, link_url: linkUrl || null, vote_count: 0 }])
+        .from("poll_options")
+        .insert([
+          {
+            poll_id: pollId,
+            text: optionText,
+            link_url: linkUrl || null,
+            vote_count: 0,
+          },
+        ])
         .select()
         .single();
 
       if (error) throw error;
       return data;
     } catch (err) {
-      console.error('Supabase addOption failed:', err);
+      console.error("Supabase addOption failed:", err);
       return null;
     }
   },
 
-  async fetchUserVotedOptionIds(pollId: string, kakaoUserId?: string): Promise<string[]> {
+  async fetchUserVotedOptionIds(
+    pollId: string,
+    kakaoUserId?: string,
+  ): Promise<string[]> {
     const voterId = getVoterIdentifier(kakaoUserId);
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
-          .from('votes')
-          .select('option_id, user_identifier')
-          .eq('poll_id', pollId);
+          .from("votes")
+          .select("option_id, user_identifier")
+          .eq("poll_id", pollId);
 
         if (!error && data) {
           const userVotes = data.filter((row: { user_identifier: string }) =>
-            row.user_identifier.startsWith(`${voterId}_`)
+            row.user_identifier.startsWith(`${voterId}_`),
           );
           return userVotes.map((row: { option_id: string }) => row.option_id);
         }
       } catch (err) {
-        console.warn('Supabase fetchUserVotedOptionIds error:', err);
+        console.warn("Supabase fetchUserVotedOptionIds error:", err);
       }
     }
     return [];
