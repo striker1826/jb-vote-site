@@ -1,3 +1,8 @@
+export interface PollOptionVoter {
+  voter_name?: string;
+  user_identifier: string;
+}
+
 export interface PollOption {
   id: string;
   poll_id: string;
@@ -5,6 +10,7 @@ export interface PollOption {
   link_url?: string;
   vote_count: number;
   created_at?: string;
+  voters?: PollOptionVoter[];
 }
 
 export interface Poll {
@@ -29,3 +35,4 @@ export interface VoteRecord {
 }
 
 export type PollStatusFilter = 'all' | 'ongoing' | 'ended' | 'upcoming';
+

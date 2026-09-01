@@ -17,7 +17,7 @@ export const SupabaseInfoModal: React.FC<SupabaseInfoModalProps> = ({ isOpen, on
 VITE_SUPABASE_ANON_KEY=your-anon-key-here`;
 
   const sqlSample = `-- 1. Create Polls Table
-CREATE TABLE public.polls (
+CREATE TABLE IF NOT EXISTS public.polls (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     description TEXT,
@@ -28,16 +28,17 @@ CREATE TABLE public.polls (
 );
 
 -- 2. Create Poll Options Table
-CREATE TABLE public.poll_options (
+CREATE TABLE IF NOT EXISTS public.poll_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
     text VARCHAR(255) NOT NULL,
+    link_url TEXT,
     vote_count INT DEFAULT 0 NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- 3. Create Votes Table
-CREATE TABLE public.votes (
+CREATE TABLE IF NOT EXISTS public.votes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
     option_id UUID REFERENCES public.poll_options(id) ON DELETE CASCADE NOT NULL,
@@ -45,7 +46,21 @@ CREATE TABLE public.votes (
     voter_name VARCHAR(100),
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     UNIQUE(poll_id, user_identifier)
-);`;
+);
+
+-- 4. Enable Row Level Security (RLS) & Policies for SELECT/INSERT/UPDATE/DELETE
+ALTER TABLE public.polls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.poll_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.votes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public all polls" ON public.polls;
+CREATE POLICY "Allow public all polls" ON public.polls FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all poll_options" ON public.poll_options;
+CREATE POLICY "Allow public all poll_options" ON public.poll_options FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all votes" ON public.votes;
+CREATE POLICY "Allow public all votes" ON public.votes FOR ALL USING (true) WITH CHECK (true);`;
 
   const copyToClipboard = (text: string, setFn: (val: boolean) => void) => {
     navigator.clipboard.writeText(text);

@@ -118,12 +118,19 @@ export const PollService = {
 
         const { data: votesData } = await supabase
           .from('votes')
-          .select('option_id');
+          .select('option_id, voter_name, user_identifier');
 
         const voteCountsByOption: Record<string, number> = {};
+        const votersByOption: Record<string, { voter_name?: string; user_identifier: string }[]> = {};
+
         if (votesData && votesData.length > 0) {
-          votesData.forEach((v: { option_id: string }) => {
+          votesData.forEach((v: { option_id: string; voter_name?: string; user_identifier: string }) => {
             voteCountsByOption[v.option_id] = (voteCountsByOption[v.option_id] || 0) + 1;
+            if (!votersByOption[v.option_id]) votersByOption[v.option_id] = [];
+            votersByOption[v.option_id].push({
+              voter_name: v.voter_name || undefined,
+              user_identifier: v.user_identifier,
+            });
           });
         }
 
@@ -133,6 +140,7 @@ export const PollService = {
             .map((opt: PollOption) => ({
               ...opt,
               vote_count: votesData ? (voteCountsByOption[opt.id] || 0) : opt.vote_count,
+              voters: votersByOption[opt.id] || [],
             }))
             .sort((a: PollOption, b: PollOption) => {
               if (a.created_at && b.created_at && a.created_at !== b.created_at) {
@@ -227,6 +235,15 @@ export const PollService = {
       );
 
       const existingOptIds = userExistingVotes.map((v: { option_id: string }) => v.option_id);
+
+      // Update voter_name on existing retained votes if voterName is provided
+      if (voterName && voterName.trim() && userExistingVotes.length > 0) {
+        const retainedVotes = userExistingVotes.filter((v: { option_id: string }) => targets.includes(v.option_id));
+        if (retainedVotes.length > 0) {
+          const retainedIds = retainedVotes.map((v: { id: string }) => v.id);
+          await supabase.from('votes').update({ voter_name: voterName.trim() }).in('id', retainedIds);
+        }
+      }
 
       // 2. Delete votes for options that are no longer selected by user
       const toDelete = userExistingVotes.filter((v: { option_id: string }) => !targets.includes(v.option_id));

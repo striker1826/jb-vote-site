@@ -15,6 +15,8 @@ import {
   Link as LinkIcon,
   MessageCircle,
   Play,
+  Users,
+  Music2,
 } from "lucide-react";
 
 import type { Poll } from "../types/vote";
@@ -25,6 +27,12 @@ import {
   extractYouTubeId,
 } from "./YouTubePlaylistPlayer";
 import type { PlaylistItem } from "./YouTubePlaylistPlayer";
+import {
+  MEMBERS,
+  getPartsByVoterName,
+  getBandPartsSummary,
+} from "../constants/instruments";
+
 
 interface PollDetailModalProps {
   poll: Poll | null;
@@ -289,21 +297,52 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
           </div>
         )}
 
-        {/* Public Vote Name Input */}
-        {!poll.is_anonymous && isOngoing && (
+        {/* Voter Name & Member Selector Input */}
+        {isOngoing && (
           <div className="mb-6 p-4 rounded-xl bg-slate-950 border border-slate-800">
-            <label className="block text-sm font-semibold text-slate-200 mb-1.5">
-              투표자 이름 / 닉네임 <span className="text-rose-400">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-semibold text-slate-200">
+                투표자 이름 / 파트 선택 {!poll.is_anonymous && <span className="text-rose-400">*</span>}
+              </label>
+              <span className="text-xs text-slate-400">
+                멤버 이름을 클릭하면 자동 설정됩니다
+              </span>
+            </div>
+
+            {/* Quick Member Selection Chips */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {MEMBERS.map((m) => {
+                const isSelected = voterName.trim() === m.name;
+                return (
+                  <button
+                    key={m.name}
+                    type="button"
+                    onClick={() => setVoterName(m.name)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                      isSelected
+                        ? "bg-indigo-600 border-indigo-500 text-white font-bold shadow-sm ring-1 ring-indigo-400 scale-105"
+                        : "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    {m.name}
+                    <span className="ml-1 text-[10px] opacity-75">
+                      ({m.parts.join(",")})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             <input
               type="text"
               value={voterName}
               onChange={(e) => handleVoterNameChange(e.target.value)}
-              placeholder="예: 홍길동 (공개 투표용 이름)"
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
+              placeholder="직접 입력: 예) 홍길동(건반)"
+              className="w-full px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
             />
           </div>
         )}
+
 
         {/* Active YouTube Playlist Player */}
         {isPlaylistActive && activeQueue.length > 0 && (
@@ -469,9 +508,88 @@ export const PollDetailModal: React.FC<PollDetailModalProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Voter List & Band Part Lineup Summary */}
+                {(() => {
+                  const optionVoters = (option.voters || [])
+                    .map((v) => v.voter_name)
+                    .filter((name): name is string => Boolean(name && name.trim()));
+
+                  if (optionVoters.length === 0) return null;
+
+                  const bandParts = getBandPartsSummary(optionVoters);
+
+                  return (
+                    <div className="relative z-10 mt-3 pt-3 border-t border-slate-800/80 space-y-2.5 text-xs">
+                      {/* Who Voted Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-indigo-400" />
+                          투표자 ({optionVoters.length}명):
+                        </span>
+                        {optionVoters.map((voter, idx) => {
+                          const parts = getPartsByVoterName(voter);
+                          return (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 text-slate-200 border border-slate-700 text-[11px] font-medium"
+                            >
+                              <span>{voter}</span>
+                              {parts.length > 0 && (
+                                <span className="text-[10px] text-indigo-300 font-semibold bg-indigo-500/20 px-1 py-0.2 rounded">
+                                  {parts.join(", ")}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      {/* Band Part Lineup Status */}
+                      <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800/80">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-1.5">
+                          <span className="flex items-center gap-1 text-slate-300">
+                            <Music2 className="w-3.5 h-3.5 text-violet-400" />
+                            곡별 파트 구성 현황
+                          </span>
+                          <span className="text-[10px] text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-500/30 font-bold">
+                            {bandParts.filledCount} / {bandParts.totalCategories} 파트 모임
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {bandParts.summaries.map((cat) => {
+                            const isFilled = cat.voters.length > 0;
+                            return (
+                              <div
+                                key={cat.category}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] border ${
+                                  isFilled
+                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 font-medium shadow-sm"
+                                    : "bg-slate-900/40 border-slate-800/60 text-slate-500"
+                                }`}
+                              >
+                                <span>{cat.icon}</span>
+                                <span className="font-semibold">{cat.label}:</span>
+                                {isFilled ? (
+                                  <span className="font-bold text-white">
+                                    {cat.voters.map((v) => v.name).join(", ")}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] opacity-60">미정</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
+
         </div>
 
         {/* Add New Option (Song) Section for anyone */}
