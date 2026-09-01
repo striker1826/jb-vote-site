@@ -15,7 +15,6 @@ export interface UserProfile {
   id: string;
   name: string;
   avatar_url?: string;
-  email?: string;
 }
 
 export const AuthService = {
@@ -60,7 +59,6 @@ export const AuthService = {
         user.user_metadata?.preferred_username ||
         "카카오 사용자",
       avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-      email: user.email,
     };
   },
 
@@ -82,7 +80,6 @@ export const AuthService = {
             u.user_metadata?.preferred_username ||
             "카카오 사용자",
           avatar_url: u.user_metadata?.avatar_url || u.user_metadata?.picture,
-          email: u.email,
         });
       } else {
         callback(null);
